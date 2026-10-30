@@ -1,0 +1,28 @@
+# 시험용: hello_native 크레이트를 Vercel 함수 환경(x86_64 Linux)용 wheel 로 빌드해
+# GitHub Release 에 올린다. Vercel 빌드 이미지에는 Rust 툴체인이 없어서 wheel 은 여기서 만든다.
+name: spike-wheel
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: PyO3/maturin-action@v1
+        with:
+          working-directory: spikes/vercel-pyo3/crate
+          target: x86_64
+          manylinux: auto
+          args: --release --out dist
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view spike-vercel-pyo3 >/dev/null 2>&1 \
+            || gh release create spike-vercel-pyo3 --prerelease --title "spike: vercel-pyo3" --notes "Vercel Python 함수에서 PyO3 wheel 로드 시험용."
+          gh release upload spike-vercel-pyo3 spikes/vercel-pyo3/crate/dist/*.whl --clobber

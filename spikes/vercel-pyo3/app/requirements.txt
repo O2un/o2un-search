@@ -1,0 +1,2 @@
+fastapi
+hello-native @ https://github.com/O2un/o2un-search/releases/download/spike-vercel-pyo3/hello_native-0.1.0-cp312-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl

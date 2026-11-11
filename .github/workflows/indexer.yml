@@ -11,7 +11,7 @@ on:
       search-ref:
         description: 이 레포에서 indexer 코드를 받을 ref
         type: string
-        default: main
+        default: master
     secrets:
       SEARCH_WRITER_URL:
         required: true

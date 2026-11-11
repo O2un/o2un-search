@@ -3,9 +3,9 @@ requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "hello-native"
-version = "0.1.0"
+name = "o2un-search-core"
+dynamic = ["version"]
 requires-python = ">=3.12"
 
 [tool.maturin]
-module-name = "hello_native"
+module-name = "o2un_search_core"

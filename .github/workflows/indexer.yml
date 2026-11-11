@@ -1,0 +1,94 @@
+# 블로그 글을 검색 색인과 맞춘다. 재사용 워크플로라 블로그 레포가 호출하고, 실행과 로그는
+# 호출한 블로그 레포(비공개)에 남는다. 이 레포는 공개라, 여기서 직접 돌리면 빌드 오류에
+# 초안 원문이 섞여 공개 로그로 나갈 수 있다.
+#
+# 호출하는 쪽이 정할 것: 트리거, 동시 실행 그룹, permissions(contents: read), Secrets 두 개.
+name: indexer
+
+on:
+  workflow_call:
+    inputs:
+      search-ref:
+        description: 이 레포에서 indexer 코드를 받을 ref
+        type: string
+        default: main
+    secrets:
+      SEARCH_WRITER_URL:
+        required: true
+      GEMINI_API_KEY:
+        required: true
+
+jobs:
+  index:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      # 호출한 블로그 레포의 해당 커밋. 비공개 레포지만 호출한 레포의 토큰으로 받는다.
+      - uses: actions/checkout@v4
+        with:
+          path: blog
+          persist-credentials: false
+
+      - uses: actions/checkout@v4
+        with:
+          repository: O2un/o2un-search
+          ref: ${{ inputs.search-ref }}
+          path: search
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: blog/package-lock.json
+
+      # 이 빌드는 배포하지 않는다. 빌드가 검사하는 공개 키 두 개만 자리표시 값으로 채운다.
+      - name: Build blog
+        working-directory: blog
+        env:
+          PUBLIC_TURNSTILE_SITE_KEY: ci-placeholder
+          PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Y2kucGxhY2Vob2xkZXIuZGV2JA
+        run: |
+          npm ci
+          npm run build
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+          enable-cache: true
+          cache-dependency-glob: search/indexer/uv.lock
+
+      - name: Install indexer
+        working-directory: search/indexer
+        run: uv sync --frozen
+
+      - name: Check anchors
+        working-directory: search/indexer
+        run: |
+          set -o pipefail
+          { echo '### check-anchors'; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          uv run --frozen indexer check-anchors --blog ../../blog | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Sync
+        working-directory: search/indexer
+        env:
+          SEARCH_WRITER_URL: ${{ secrets.SEARCH_WRITER_URL }}
+        run: |
+          set -o pipefail
+          { echo '### sync'; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          uv run --frozen indexer sync --blog ../../blog | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      # 호출 한도로 멈추면 exit 1 로 실패 표시가 남는다. sync 는 이미 반영됐고, 남은 임베딩은
+      # 다음 실행이 이어 간다.
+      - name: Embed
+        working-directory: search/indexer
+        env:
+          SEARCH_WRITER_URL: ${{ secrets.SEARCH_WRITER_URL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          set -o pipefail
+          { echo '### embed'; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          uv run --frozen indexer embed 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"

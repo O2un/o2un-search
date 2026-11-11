@@ -1,0 +1,135 @@
+{
+  "post_id": "samples/mixed_titles",
+  "ext": "md",
+  "chunks": [
+    {
+      "chunk_id": "samples/mixed_titles#-field-키워드",
+      "post_id": "samples/mixed_titles",
+      "anchor": "-field-키워드",
+      "heading_path": "① field 키워드",
+      "body": "## ① `field` 키워드\n\n원문자는 슬러그에서 빠진다.",
+      "content_hash": "f3cc2f4c0fb258b9d95e8283db44aec43a2cd8fdabcf584d161964b27ef6d135",
+      "tokens": [
+        "field",
+        "키워",
+        "워드",
+        "원문",
+        "문자",
+        "자는",
+        "슬러",
+        "러그",
+        "그에",
+        "에서",
+        "빠진",
+        "진다"
+      ]
+    },
+    {
+      "chunk_id": "samples/mixed_titles#c-delegateevent와-r3-subject",
+      "post_id": "samples/mixed_titles",
+      "anchor": "c-delegateevent와-r3-subject",
+      "heading_path": "C# Delegate/event와 R3 Subject",
+      "body": "## C# Delegate/event와 R3 Subject",
+      "content_hash": "43e7c082d3c1acb5b055d3135a6ccf1bc59676cbf7103ed6c1cbd792e90a70c2",
+      "tokens": [
+        "c",
+        "delegate",
+        "event",
+        "r3",
+        "subject"
+      ]
+    },
+    {
+      "chunk_id": "samples/mixed_titles#c26이-온다--senders--receivers",
+      "post_id": "samples/mixed_titles",
+      "anchor": "c26이-온다--senders--receivers",
+      "heading_path": "C++26이 온다 — senders / receivers",
+      "body": "## C++26이 온다 — senders / receivers",
+      "content_hash": "2763da8e7bce9b20a279807a3cf49f3dc52e72e539bd33854f1534d7462ae35b",
+      "tokens": [
+        "c",
+        "26",
+        "온다",
+        "senders",
+        "receivers"
+      ]
+    },
+    {
+      "chunk_id": "samples/mixed_titles#굵게와-기울임-그리고-solid_id",
+      "post_id": "samples/mixed_titles",
+      "anchor": "굵게와-기울임-그리고-solid_id",
+      "heading_path": "굵게와 기울임, 그리고 SOLID_ID",
+      "body": "## **굵게**와 _기울임_, 그리고 SOLID_ID",
+      "content_hash": "3e813eaecb778b75e0af7de6e722c7686ce0b71b5e92383bfd52aded7b28be45",
+      "tokens": [
+        "굵게",
+        "기울",
+        "울임",
+        "그리",
+        "리고",
+        "solid",
+        "id"
+      ]
+    },
+    {
+      "chunk_id": "samples/mixed_titles#링크-글자와-취소선",
+      "post_id": "samples/mixed_titles",
+      "anchor": "링크-글자와-취소선",
+      "heading_path": "링크 글자와 취소선",
+      "body": "## [링크 글자](https://example.com)와 ~~취소선~~",
+      "content_hash": "2a9581a9713b7add5f2d46452b183efe016e3a229548123b7b93f49e72be60e4",
+      "tokens": [
+        "링크",
+        "글자",
+        "https",
+        "example",
+        "com",
+        "취소",
+        "소선"
+      ]
+    },
+    {
+      "chunk_id": "samples/mixed_titles#a--b-따옴표-its-끝",
+      "post_id": "samples/mixed_titles",
+      "anchor": "a--b-따옴표-its-끝",
+      "heading_path": "A — B, \"따옴표\", it's... 끝",
+      "body": "## A -- B, \"따옴표\", it's... 끝",
+      "content_hash": "9004497d649ff3611afc9eacdb2a6526439f7fc071f804e440d0b3d453888ce5",
+      "tokens": [
+        "a",
+        "b",
+        "따옴",
+        "옴표",
+        "it",
+        "s"
+      ]
+    },
+    {
+      "chunk_id": "samples/mixed_titles#net-10에-없는-api",
+      "post_id": "samples/mixed_titles",
+      "anchor": "net-10에-없는-api",
+      "heading_path": ".NET 10에 없는 API",
+      "body": "## .NET 10에 없는 API ##",
+      "content_hash": "3a840b9827f5b99f71fc5e0ff81d713d5fc4abf7ddca2ae9e9683d8f301c7c0a",
+      "tokens": [
+        "net",
+        "10",
+        "없는",
+        "api"
+      ]
+    },
+    {
+      "chunk_id": "samples/mixed_titles#searchvaluest와-별표",
+      "post_id": "samples/mixed_titles",
+      "anchor": "searchvaluest와-별표",
+      "heading_path": "SearchValues<T>와 *별표*",
+      "body": "## `SearchValues<T>`와 \\*별표\\*",
+      "content_hash": "878acaf93098ac65482312898b66a4d6e8d2f68c86b7f18a7e16846ade01c98d",
+      "tokens": [
+        "searchvalues",
+        "t",
+        "별표"
+      ]
+    }
+  ]
+}

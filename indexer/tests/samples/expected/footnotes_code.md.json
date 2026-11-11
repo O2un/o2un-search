@@ -1,0 +1,116 @@
+{
+  "post_id": "samples/footnotes_code",
+  "ext": "md",
+  "chunks": [
+    {
+      "chunk_id": "samples/footnotes_code#",
+      "post_id": "samples/footnotes_code",
+      "anchor": "",
+      "heading_path": "",
+      "body": "도입부에 각주 표시가 있다.",
+      "content_hash": "8b7a4822ea2895593820ff27928cd00e58390f38f3aab0113a21ff50f7f3b673",
+      "tokens": [
+        "도입",
+        "입부",
+        "부에",
+        "각주",
+        "표시",
+        "시가",
+        "있다"
+      ]
+    },
+    {
+      "chunk_id": "samples/footnotes_code#코드-블록",
+      "post_id": "samples/footnotes_code",
+      "anchor": "코드-블록",
+      "heading_path": "코드 블록",
+      "body": "## 코드 블록\n\n아래 코드 안의 `#` 줄은 제목이 아니다.\n\n```bash\n# macOS or Linux\ncurl -fsSL https://example.com/install.sh | bash\n\n## 이것도 제목이 아니다\n```\n\n~~~\n## 물결 펜스 안\n~~~",
+      "content_hash": "1eac875cd250c254a39c995905eae7b34a12061e90d165db26794d908e7e0add",
+      "tokens": [
+        "코드",
+        "블록",
+        "아래",
+        "코드",
+        "안의",
+        "줄은",
+        "제목",
+        "목이",
+        "아니",
+        "니다",
+        "bash",
+        "macos",
+        "or",
+        "linux",
+        "curl",
+        "fssl",
+        "https",
+        "example",
+        "com",
+        "install",
+        "sh",
+        "bash",
+        "이것",
+        "것도",
+        "제목",
+        "목이",
+        "아니",
+        "니다",
+        "물결",
+        "펜스"
+      ]
+    },
+    {
+      "chunk_id": "samples/footnotes_code#미디어",
+      "post_id": "samples/footnotes_code",
+      "anchor": "미디어",
+      "heading_path": "미디어",
+      "body": "## 미디어\n\n이미지 뒤 문단. 링크는 [그대로](https://example.com) 남는다.\n\n:::note[참고]\n콜아웃 본문은 남는다.\n:::",
+      "content_hash": "ed24525ae16341b1e9d8664773316f78af3ca1403177cc4bdd91a0a684b4d31c",
+      "tokens": [
+        "미디",
+        "디어",
+        "이미",
+        "미지",
+        "문단",
+        "링크",
+        "크는",
+        "그대",
+        "대로",
+        "https",
+        "example",
+        "com",
+        "남는",
+        "는다",
+        "note",
+        "참고",
+        "콜아",
+        "아웃",
+        "본문",
+        "문은",
+        "남는",
+        "는다"
+      ]
+    },
+    {
+      "chunk_id": "samples/footnotes_code#빈-절",
+      "post_id": "samples/footnotes_code",
+      "anchor": "빈-절",
+      "heading_path": "빈 절",
+      "body": "## 빈 절",
+      "content_hash": "4b4d4727a9faef28c416d909a049c00ef0bb725c9ea5239d5f7f28ae71db48a0",
+      "tokens": []
+    },
+    {
+      "chunk_id": "samples/footnotes_code#참고-자료",
+      "post_id": "samples/footnotes_code",
+      "anchor": "참고-자료",
+      "heading_path": "참고 자료",
+      "body": "## 참고 자료",
+      "content_hash": "eff23ea1134001016ff543ca13c8eab3f09534b8c847fadd221f41d3a99508f5",
+      "tokens": [
+        "참고",
+        "자료"
+      ]
+    }
+  ]
+}

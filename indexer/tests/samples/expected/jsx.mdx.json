@@ -1,0 +1,54 @@
+{
+  "post_id": "samples/jsx",
+  "ext": "mdx",
+  "chunks": [
+    {
+      "chunk_id": "samples/jsx#",
+      "post_id": "samples/jsx",
+      "anchor": "",
+      "heading_path": "",
+      "body": ":::note[참고]\n인트로 미니게임 안내.\n:::\n\n도입부 본문.",
+      "content_hash": "b7099ee92d6023d9eb0551638b91cbf0a658aa530f9553819b150e47aeba041d",
+      "tokens": [
+        "note",
+        "참고",
+        "인트",
+        "트로",
+        "미니",
+        "니게",
+        "게임",
+        "안내",
+        "도입",
+        "입부",
+        "본문"
+      ]
+    },
+    {
+      "chunk_id": "samples/jsx#차트",
+      "post_id": "samples/jsx",
+      "anchor": "차트",
+      "heading_path": "차트",
+      "body": "## 차트\n\n차트 아래 설명.",
+      "content_hash": "5431b338116be256d373f142b5f211bc6a931b0bdb8a56f4fe9b1cbf97955e1a",
+      "tokens": [
+        "차트",
+        "차트",
+        "아래",
+        "설명"
+      ]
+    },
+    {
+      "chunk_id": "samples/jsx#끝",
+      "post_id": "samples/jsx",
+      "anchor": "끝",
+      "heading_path": "끝",
+      "body": "## 끝\n\n마지막 문단.",
+      "content_hash": "336cc102d9f09fe853174aa2fa583823f3bb63f8cae557bc9f5a37f4fc104496",
+      "tokens": [
+        "마지",
+        "지막",
+        "문단"
+      ]
+    }
+  ]
+}

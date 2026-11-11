@@ -1,0 +1,38 @@
+{
+  "duplicates.md": [
+    "예시",
+    "예시-2",
+    "예시-1-1",
+    "정리"
+  ],
+  "footnotes_code.md": [
+    "코드-블록",
+    "미디어",
+    "빈-절",
+    "참고-자료"
+  ],
+  "intro_only.md": [],
+  "long_section.md": [
+    "짧은-절",
+    "긴-절",
+    "다음-절"
+  ],
+  "mixed_titles.md": [
+    "-field-키워드",
+    "c-delegateevent와-r3-subject",
+    "c26이-온다--senders--receivers",
+    "굵게와-기울임-그리고-solid_id",
+    "링크-글자와-취소선",
+    "a--b-따옴표-its-끝",
+    "net-10에-없는-api",
+    "searchvaluest와-별표"
+  ],
+  "nesting.md": [
+    "하나",
+    "하나의-하위",
+    "더-깊은-절",
+    "하나의-두-번째-하위",
+    "둘",
+    "둘의-하위"
+  ]
+}

@@ -1,0 +1,88 @@
+{
+  "post_id": "samples/duplicates",
+  "ext": "md",
+  "chunks": [
+    {
+      "chunk_id": "samples/duplicates#예시",
+      "post_id": "samples/duplicates",
+      "anchor": "예시",
+      "heading_path": "예시",
+      "body": "## 예시\n\n첫 번째 예시.\n\n:::note[참고]\n### 예시\n\n콜아웃 안 제목은 절이 아니지만 번호를 하나 쓴다.\n:::",
+      "content_hash": "fbccb5c0e4ff9a7a3803506dd19876a4405272f91a3d270221555161aa162f19",
+      "tokens": [
+        "예시",
+        "번째",
+        "예시",
+        "note",
+        "참고",
+        "예시",
+        "콜아",
+        "아웃",
+        "제목",
+        "목은",
+        "절이",
+        "아니",
+        "니지",
+        "지만",
+        "번호",
+        "호를",
+        "하나",
+        "쓴다"
+      ]
+    },
+    {
+      "chunk_id": "samples/duplicates#예시-2",
+      "post_id": "samples/duplicates",
+      "anchor": "예시-2",
+      "heading_path": "예시",
+      "body": "## 예시\n\n세 번째로 나온 \"예시\"라 `-2` 가 붙는다.\n\n> ## 예시\n>\n> 인용문 안 제목도 번호를 쓴다.",
+      "content_hash": "970eca64c6f61ec5d6fba5a94dc19e4b5c8f8ad0f981e9c38ab7609155d3352a",
+      "tokens": [
+        "예시",
+        "번째",
+        "째로",
+        "나온",
+        "예시",
+        "2",
+        "붙는",
+        "는다",
+        "예시",
+        "인용",
+        "용문",
+        "제목",
+        "목도",
+        "번호",
+        "호를",
+        "쓴다"
+      ]
+    },
+    {
+      "chunk_id": "samples/duplicates#예시-1-1",
+      "post_id": "samples/duplicates",
+      "anchor": "예시-1-1",
+      "heading_path": "예시-1",
+      "body": "## 예시-1\n\n이미 쓴 `예시-1` 과 겹친다.",
+      "content_hash": "84e6aae8da27dd2636b00c985af5403cab3790daabe2f74555740437803b62df",
+      "tokens": [
+        "예시",
+        "1",
+        "이미",
+        "예시",
+        "1",
+        "겹친",
+        "친다"
+      ]
+    },
+    {
+      "chunk_id": "samples/duplicates#정리",
+      "post_id": "samples/duplicates",
+      "anchor": "정리",
+      "heading_path": "정리",
+      "body": "## 정리",
+      "content_hash": "8a8184a8f68bd5a4620764aa9a3f5fb47ddeaa6ad3ea8383f5fbe120854e8236",
+      "tokens": [
+        "정리"
+      ]
+    }
+  ]
+}

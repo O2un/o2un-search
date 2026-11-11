@@ -1,0 +1,29 @@
+---
+title: 'MDX'
+description: 'import 와 JSX'
+pubDate: '2026-11-01'
+draft: false
+---
+
+import Intro from './Intro.astro';
+import { Chart } from '../../components/Chart';
+
+<Intro />
+
+:::note[참고]
+인트로 미니게임 안내.
+:::
+
+도입부 본문.
+
+## 차트
+
+<Chart data={[1, 2, 3]} />
+
+차트 아래 설명.
+
+export const meta = { a: 1 };
+
+## 끝
+
+마지막 문단.

@@ -4,6 +4,8 @@
 //! `indexer/src/indexer/{chunker,tokenizer}.py` 다. 출력이 바이트 단위로 같아야 교체한다.
 //! 지금은 wheel 빌드·배포 경로(단위 1c)를 확인하려고 함수 자리만 둔다.
 
+pub mod tokenizer;
+
 use pyo3::exceptions::PyNotImplementedError;
 use pyo3::prelude::*;
 

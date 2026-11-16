@@ -16,7 +16,7 @@ pub fn slugify(value: &str) -> String {
     let lowercase = value.to_lowercase();
     lowercase
         .chars()
-        .filter(|&c| !removed(c))
+        .filter(|&c| false == removed(c))
         .map(|c| if c == ' ' { '-' } else { c })
         .collect()
 }
@@ -37,7 +37,7 @@ impl Slugger {
     pub fn slug(&mut self, value: &str) -> String {
         let original = slugify(value);
 
-        if !self.occurrences.contains_key(&original) {
+        if false == self.occurrences.contains_key(&original) {
             self.occurrences.insert(original.clone(), 0);
             return original;
         }
@@ -50,7 +50,7 @@ impl Slugger {
             *count += 1;
             let candidate = format!("{original}-{count}");
 
-            if !self.occurrences.contains_key(&candidate) {
+            if false == self.occurrences.contains_key(&candidate) {
                 self.occurrences.insert(candidate.clone(), 0);
                 return candidate;
             }

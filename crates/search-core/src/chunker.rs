@@ -13,7 +13,7 @@
 
 use std::sync::LazyLock;
 
-use fancy_regex::Regex;
+use fancy_regex::{Captures, Regex};
 use itertools::Itertools;
 use sha2::{Digest, Sha256};
 
@@ -106,40 +106,41 @@ fn unescaped_text(segment: &str) -> String {
     DOUBLE_DASH.replace_all(&segment, "\u{2014}").into_owned()
 }
 
+/// 정규식에 걸린 곳은 `hit` 으로, 걸린 곳 사이는 `gap` 으로 바꿔 잇는다.
+fn map_matches(
+    re: &Regex,
+    text: &str,
+    gap: impl Fn(&str) -> String,
+    hit: impl Fn(&Captures<str>) -> String,
+) -> String {
+    let mut out = String::new();
+    let mut pos = 0;
+    for caps in re.captures_iter(text) {
+        let caps = caps.expect("정규식 매칭");
+        let m = caps.get(0).unwrap();
+        out += &gap(&text[pos..m.start()]);
+        out += &hit(&caps);
+        pos = m.end();
+    }
+    out + &gap(&text[pos..])
+}
+
 /// 역슬래시로 이스케이프한 글자는 문법으로 읽지 않고 글자 그대로 둔다.
 fn inline_text(segment: &str) -> String {
-    let (mut parts, last_pos) = ESCAPE.captures_iter(segment)
-        .fold((Vec::new(),0), |(mut acc, pos), cap_result| {
-            let cap = cap_result.expect("정규식 캡처 중 에러가 발생했습니다");
-            let m = cap.get(0).unwrap();
-            acc.push(unescaped_text(&segment[pos..m.start()]));
-            acc.push(cap.get(1).unwrap().as_str().to_string());
-            (acc, m.end())
-        });
-
-    parts.push(unescaped_text(&segment[last_pos..]));
-    parts.join("")
+    map_matches(&ESCAPE, segment, unescaped_text, |caps| caps[1].to_string())
 }
 
 /// ATX 제목 줄의 내용을 화면에 보이는 글자로 바꾼다. 슬러그와 제목 경로에 쓴다.
 pub fn heading_text(raw: &str) -> String {
-    let (mut parts, last_pos) = CODE_SPAN.captures_iter(raw)
-        .fold((Vec::new(),0), |(mut acc, pos), cap_result| {
-            let cap = cap_result.expect("정규식 캡처 중 에러가 발생했습니다");
-            let m = cap.get(0).unwrap();
-            acc.push(inline_text(&raw[pos..m.start()]));
-
-            let mut code = cap.get(2).unwrap().as_str();
-            if matches!(code.as_bytes(), [b' ', .., b' ']) && false == code.trim().is_empty() {
-                code = &code[1..code.len() -1];
-            }
-            
-            acc.push(code.to_string());
-            (acc, m.end())
-        });
-
-    parts.push(inline_text(&raw[last_pos..]));
-    parts.join("").trim().to_string()
+    let text = map_matches(&CODE_SPAN, raw, inline_text, |caps| {
+        let code = &caps[2];
+        if matches!(code.as_bytes(), [b' ', .., b' ']) && false == code.trim().is_empty() {
+            code[1..code.len() - 1].to_string()
+        } else {
+            code.to_string()
+        }
+    });
+    text.trim().to_string()
 }
 
 /// ATX 제목 줄이면 (레벨, 보이는 제목) 을 돌려준다.

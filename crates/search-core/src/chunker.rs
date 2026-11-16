@@ -11,24 +11,7 @@
 //! 본문에서 버리는 것: 프론트매터, 각주 정의와 각주 표시, 이미지, `::youtube`·`::x` 디렉티브,
 //! `.mdx` 의 `import`·`export` 블록과 한 줄 전체가 JSX 태그인 줄. 코드 블록은 남긴다.
 
-// TODO(3단계): 이 파일의 todo!() 를 채운다. 기준 구현은 `indexer/src/indexer/chunker.py`(333줄).
-// 함수 순서는 원본과 같다. 위에서부터 채우고, 하나 채울 때마다 그 함수의 테스트부터 통과시키면
-// 어디서 어긋났는지 바로 보인다:
-//   cargo test chunker::tests::heading_text   (함수 이름 일부로 골라 돌릴 수 있다)
-// 마지막에 tests/samples.rs(샘플 글 7개 전체 대조)가 통과하면 3단계 끝이다.
-//
-// 공통 주의
-// - 길이는 전부 "문자 수"다. Python `len(s)` 는 코드 포인트 수, Rust `s.len()` 은 바이트 수다.
-//   한글은 한 글자가 3바이트라 `len()` 을 쓰면 8,192 한도가 1/3 로 줄어든다. `s.chars().count()` 를 쓴다.
-//   문자열을 n 글자에서 자를 때도 바이트 위치가 아니라 문자 경계로 자른다(`char_indices` 를 찾아볼 것).
-// - Python `strip()`·`rstrip()` 은 Rust `trim()`·`trim_end()`, `lstrip(" ")` 는 `trim_start_matches(' ')`.
-// - 정규식은 원본 패턴을 아래 static 으로 그대로 옮겨 두었다(fancy-regex: 역참조·전후방 탐색 지원).
-//   - Python `pat.match(s)` → 패턴이 모두 `^` 로 시작하므로 `RE.captures(s)` / `RE.is_match(s)` 와 같다.
-//     fancy-regex 는 이 함수들이 `Result` 를 돌려준다(역추적 한도 초과 때 Err). 여기서는 `.unwrap()` 으로 충분하다.
-//   - Python `pat.sub(r"\1", s)` → `RE.replace_all(s, "${1}")`. `$1` 바로 뒤에 글자가 붙으면 그룹 이름으로
-//     읽히므로 중괄호를 쓴다. 반환은 `Cow<str>` 이라 `.into_owned()` 나 `.to_string()` 으로 String 을 만든다.
-
-use std::{sync::LazyLock};
+use std::sync::LazyLock;
 
 use fancy_regex::Regex;
 use itertools::Itertools;

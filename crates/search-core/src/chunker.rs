@@ -432,37 +432,23 @@ pub fn chunk(post_source: &str, post_id: &str, ext: Ext) -> Vec<Chunk> {
     let mut stack:Vec<Heading> = vec![];
 
     for item in scan(post_source, ext) {
-        match item {
-            Item::Heading(heading) => {
-                let is_level_two: bool = 2 == heading.level;
-                let is_level_three_or_more = 3 <= heading.level;
-                let target_level = heading.level - 1;
-                let has_parent = stack.iter().any(|h: &Heading| {target_level == h.level});
-
-                if is_level_two || (is_level_three_or_more && has_parent) {
-                    while matches!(stack.last(), Some(top) if heading.level <= top.level) {
-                        stack.pop();
-                    }
-                    let heading_line = heading.line.clone();
-                    let heading_anchor = heading.anchor.clone();
-                    stack.push(heading);
-
-                    let path = stack.iter().map(|h| &h.text).join(HEADING_PATH_SEPARATOR);
-
-                    sections.push((heading_anchor, path, vec![heading_line]));
-                } else {
-                    let line = heading.line;
-                    if let Some(last_section) = sections.last_mut() {
-                        last_section.2.push(line);
-                    }
+        let line = match item {
+            Item::Heading(heading)
+                if 2 == heading.level || (3 <= heading.level && stack.iter().any(|h| heading.level - 1 == h.level)) =>
+            {
+                while matches!(stack.last(), Some(top) if heading.level <= top.level) {
+                    stack.pop();
                 }
-            },
-            Item::Line(line) =>{
-                if let Some(last_section) = sections.last_mut() {
-                    last_section.2.push(line);
-                }
+                stack.push(heading);
+                let top = stack.last().unwrap();
+                let path = stack.iter().map(|h| &h.text).join(HEADING_PATH_SEPARATOR);
+                sections.push((top.anchor.clone(), path, vec![top.line.clone()]));
+                continue;
             }
-        }
+            Item::Heading(heading) => heading.line,
+            Item::Line(line) => line,
+        };
+        sections.last_mut().expect("도입부 절이 항상 있다").2.push(line);
     }
 
     let mut chunks = Vec::new();

@@ -31,6 +31,7 @@
 use std::{sync::LazyLock};
 
 use fancy_regex::Regex;
+use itertools::Itertools;
 use sha2::{Digest, Sha256};
 
 use crate::slug::Slugger;
@@ -446,11 +447,7 @@ pub fn chunk(post_source: &str, post_id: &str, ext: Ext) -> Vec<Chunk> {
                     let heading_anchor = heading.anchor.clone();
                     stack.push(heading);
 
-                    let path = stack
-                        .iter()
-                        .map(|h| h.text.as_str())
-                        .collect::<Vec<_>>()
-                        .join(HEADING_PATH_SEPARATOR);
+                    let path = stack.iter().map(|h| &h.text).join(HEADING_PATH_SEPARATOR);
 
                     sections.push((heading_anchor, path, vec![heading_line]));
                 } else {
@@ -468,43 +465,27 @@ pub fn chunk(post_source: &str, post_id: &str, ext: Ext) -> Vec<Chunk> {
         }
     }
 
-    sections
-        .into_iter()
-        .filter_map(|(anchor, path, lines)| {
-            let normalized = normalize(&lines);
-            if normalized.is_empty() {
-                None
-            } else {
-                Some((anchor, path, normalized))
-            }
-        })
-        .flat_map(|(anchor, path, normalized)| {
-            let pieces = split(&normalized);
-            let piece_count = pieces.len();
-
-            pieces
-                .into_iter()
-                .enumerate()
-                .map(move |(idx, piece)| {
-                    let chunk_id = if piece_count < 2 {
-                        format!("{post_id}#{anchor}")
-                    } else {
-                        let num = idx + 1;
-                        format!("{post_id}#{anchor}#{num}")
-                    };
-                    let content_hash = content_hash(&path, &piece);
-
-                    Chunk {
-                        chunk_id: chunk_id,
-                        post_id: post_id.to_string(),
-                        anchor: anchor.clone(),
-                        heading_path: path.clone(),
-                        body: piece,
-                        content_hash: content_hash,
-                    }
-                })
-        })
-        .collect()
+    let mut chunks = Vec::new();
+    for (anchor, path, lines) in sections {
+        let body = normalize(&lines);
+        if body.is_empty() {
+            continue;
+        }
+        let parts = split(&body);
+        let numbered = 1 < parts.len();
+        for (number, part) in (1..).zip(parts) {
+            let chunk_id = if numbered { format!("{post_id}#{anchor}#{number}") } else { format!("{post_id}#{anchor}") };
+            chunks.push(Chunk {
+                chunk_id,
+                post_id: post_id.to_string(),
+                anchor: anchor.clone(),
+                heading_path: path.clone(),
+                content_hash: content_hash(&path, &part),
+                body: part,
+            });
+        }
+    }
+    chunks
 }
 
 #[cfg(test)]

@@ -217,8 +217,7 @@ fn scan(source: &str, ext: Ext) -> Vec<Item> {
             continue;
         }
 
-        let fence_match = FENCE_OPEN.captures(line).unwrap();
-        if let Some(caps) = fence_match {
+        if let Some(caps) = FENCE_OPEN.captures(line).unwrap() {
             let g1 = caps.get(1).map_or("", |m| m.as_str());
             let g2 = caps.get(2).map_or("", |m| m.as_str());
             if false == (g1.starts_with('`') && g2.contains('`')) {
@@ -243,8 +242,7 @@ fn scan(source: &str, ext: Ext) -> Vec<Item> {
             continue;
         }
 
-        let close = CONTAINER_CLOSE.captures(line).unwrap();
-        if let Some(caps) = close {
+        if let Some(caps) = CONTAINER_CLOSE.captures(line).unwrap() {
             let colons = caps.get(1).map_or(0, |m| m.as_str().len());
             if matches!(containers.last(), Some(&last) if last <= colons) {
                 containers.pop();
@@ -253,8 +251,7 @@ fn scan(source: &str, ext: Ext) -> Vec<Item> {
             }
         }
 
-        let open = CONTAINER_OPEN.captures(line).unwrap();
-        if let Some(caps) = open {
+        if let Some(caps) = CONTAINER_OPEN.captures(line).unwrap() {
             containers.push(caps.get(1).map_or(0, |m| m.as_str().len()));
             items.push(Item::Line(clean_inline(line)));
             continue;
@@ -267,8 +264,7 @@ fn scan(source: &str, ext: Ext) -> Vec<Item> {
             depth +=1;
         }
 
-        let heading = parse_atx(quoted);
-        if let Some((level, text)) = heading {
+        if let Some((level, text)) = parse_atx(quoted) {
             let anchor = slugger.slug(&text);
             if 0 == depth && containers.is_empty() {
                 items.push(Item::Heading(Heading{
@@ -314,8 +310,7 @@ fn blocks(body: &str) -> Vec<String> {
 
     for line in body.split('\n') {
         if fence.is_none() {
-            let match_op = FENCE_OPEN.captures(line);
-            if let Some(mat) = match_op.unwrap() {
+            if let Some(mat) = FENCE_OPEN.captures(line).unwrap() {
                 let matched = mat.get(1).unwrap().as_str();
                 fence = Some((matched.chars().next().unwrap(), matched.len()));
             } else if line.is_empty() {

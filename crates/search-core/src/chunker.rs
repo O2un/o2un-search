@@ -75,17 +75,11 @@ static CODE_SPAN: LazyLock<Regex> = LazyLock::new(|| re(r"(`+)(.+?)\1"));
 
 /// 맨 앞의 `---` … `---` 프론트매터를 뗀다. 닫는 줄이 없으면 그대로 둔다.
 fn strip_frontmatter<'a>(lines: &'a [&'a str]) -> &'a [&'a str] {
-    if false == matches!(lines.first(), Some(l) if l.trim_end() == "---"){
-        return lines;
+    let is_fence = |l: &&str| l.trim_end() == "---";
+    match lines.split_first() {
+        Some((first, rest)) if is_fence(first) => rest.iter().position(is_fence).map_or(lines, |i| &rest[i + 1..]),
+        _ => lines,
     }
-
-    for index in 1..lines.len(){
-        if lines[index].trim_end() == "---" {
-            return &lines[index + 1..];
-        }
-    }
-
-    lines
 }
 
 /// 본문 줄에서 이미지와 각주 표시를 지운다.

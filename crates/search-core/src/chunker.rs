@@ -38,6 +38,11 @@ use crate::slug::Slugger;
 /// 청크 본문 한도(문자 수). 임베딩 입력 한도 8,192 토큰을 문자 수로 대신한다.
 pub const MAX_CHUNK_CHARS: usize = 8192;
 
+/// 한도는 바이트가 아니라 문자 수로 잰다.
+fn over_limit(s: &str) -> bool {
+    MAX_CHUNK_CHARS < s.chars().count()
+}
+
 pub const HEADING_PATH_SEPARATOR: &str = " > ";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -338,7 +343,7 @@ fn blocks(body: &str) -> Vec<String> {
         } else {
             let stripped = line.trim();
             let f = fence.unwrap();
-            if false == stripped.is_empty() && stripped.chars().all(|c| c == f.0) && f.1 <= stripped.chars().count() {
+            if false == stripped.is_empty() && stripped.chars().all(|c| c == f.0) && f.1 <= stripped.len() {
                 fence = None;
             }
         }
@@ -357,7 +362,7 @@ fn hard_split(block: &str) -> Vec<String> {
     let mut current = String::new();
     for line in block.split('\n') {
         let mut line = line;
-        while MAX_CHUNK_CHARS < line.chars().count() {
+        while over_limit(line) {
             if false == current.is_empty() {
                 pieces.push(current);
                 current = String::new()
@@ -369,7 +374,7 @@ fn hard_split(block: &str) -> Vec<String> {
 
         let candidate = if false == current.is_empty(){ format!("{current}\n{line}")} else { line.to_string()};
 
-        if MAX_CHUNK_CHARS < candidate.chars().count() {
+        if over_limit(&candidate) {
             pieces.push(current);
             current = line.to_string();
         }
@@ -387,7 +392,7 @@ fn hard_split(block: &str) -> Vec<String> {
 
 /// 한도를 넘는 본문을 문단 경계로 나눈다.
 fn split(body: &str) -> Vec<String> {
-    if body.chars().count() <= MAX_CHUNK_CHARS {
+    if false == over_limit(body) {
         return vec![body.to_string()];
     }
 
@@ -395,10 +400,10 @@ fn split(body: &str) -> Vec<String> {
     let mut current: String = String::new();
 
     for block in blocks(body) {
-        let pieces = if MAX_CHUNK_CHARS < block.chars().count() {hard_split(&block)} else {vec![block]};
+        let pieces = if over_limit(&block) {hard_split(&block)} else {vec![block]};
         for piece in pieces {
             let candidate = if false == current.is_empty() {format!("{current}\n\n{piece}")} else {piece.clone()};
-            if MAX_CHUNK_CHARS < candidate.chars().count() {
+            if over_limit(&candidate) {
                 parts.push(current);
                 current = piece;
             }

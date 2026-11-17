@@ -94,6 +94,8 @@ def test_hybrid_groups_by_post_and_uses_cache() -> None:
     # dev/a 는 키워드 1위(x)와 벡터 2위(y) 중 높은 쪽, life/b 는 벡터 1위. 동점은 청크 id 순.
     assert [r["post_id"] for r in first.results] == ["dev/a", "life/b"]
     assert first.results[0]["best"]["anchor"] == "x"
+    # dev/a 는 키워드 후보에 걸렸고, life/b 는 벡터 후보로만 들어왔다.
+    assert [r["keyword"] for r in first.results] == [True, False]
     search.run(store, cache, provider, "  검색어 ", None, 10)
     assert provider.calls == 1
 

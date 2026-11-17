@@ -74,6 +74,9 @@ def run(store: Candidates, cache: QueryCache, provider, query: str, section: str
     # 후보를 뽑은 뒤 색인이 지운 청크는 빼고 묶는다.
     scores = {cid: score for cid, score in scores.items() if cid in rows}
     hits = group_by_post(scores, {cid: row.post_id for cid, row in rows.items()}, limit)
+    # 벡터 후보는 검색어와 상관없이 늘 상위 청크를 채우므로, 순위만으로는 검색어가 실제로
+    # 글에 들어 있는지 알 수 없다. 호출하는 쪽이 보일 글을 거를 수 있게 키워드 적중을 따로 싣는다.
+    keyword_posts = {rows[cid].post_id for cid in keyword if cid in rows}
     results = [
         {
             "post_id": hit.post_id,
@@ -84,6 +87,7 @@ def run(store: Candidates, cache: QueryCache, provider, query: str, section: str
                 "heading_path": rows[hit.chunk_id].heading_path,
                 "snippet": snippet(rows[hit.chunk_id].body),
             },
+            "keyword": hit.post_id in keyword_posts,
             "score": round(hit.score, 6),
         }
         for hit in hits

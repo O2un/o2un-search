@@ -40,6 +40,30 @@ def _compare_core(args: argparse.Namespace) -> int:
     return 0 if report.ok else 1
 
 
+def _bench_core(args: argparse.Namespace) -> int:
+    from . import bench, core
+
+    if args.repeat < 1:
+        print("--repeat 는 1 이상", file=sys.stderr)
+        return 1
+    try:
+        rust = core.load("rust")
+    except ImportError:
+        print("Rust 모듈(o2un_search_core)이 설치되지 않아 잴 수 없다", file=sys.stderr)
+        return 1
+    python = core.load("python")
+    result = bench.run(bench.load_sources(args.blog), [python, rust], args.repeat)
+    print(f"공개 글 {result.posts}편·청크 {result.chunks}개, {result.repeat}바퀴")
+    for timing in result.timings:
+        print(
+            f"  {timing.name:<6} 중앙값 {timing.median * 1000:8.2f} ms"
+            f"  (최소 {min(timing.seconds) * 1000:.2f}, 최대 {max(timing.seconds) * 1000:.2f})"
+        )
+    base, other = result.timings
+    print(f"  {base.name} / {other.name} = {base.median / other.median:.1f}배")
+    return 0
+
+
 def _sync(args: argparse.Namespace) -> int:
     from . import sync
     from .store import PgStore
@@ -125,6 +149,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     compare_cmd.add_argument("--blog", type=Path, required=True, help="블로그 레포 경로")
     compare_cmd.set_defaults(run=_compare_core)
+
+    bench_cmd = commands.add_parser(
+        "bench-core", help="공개 글 전체를 두 구현으로 자르고 토큰화해 한 바퀴당 시간을 잰다"
+    )
+    bench_cmd.add_argument("--blog", type=Path, required=True, help="블로그 레포 경로")
+    bench_cmd.add_argument("--repeat", type=int, default=20, help="잴 바퀴 수 (기본 20)")
+    bench_cmd.set_defaults(run=_bench_core)
 
     sync_cmd = commands.add_parser(
         "sync", help="공개 글 전체를 청크로 잘라 색인과 맞춘다. 임베딩은 하지 않는다"

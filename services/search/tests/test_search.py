@@ -4,7 +4,7 @@ import pytest
 
 import search
 from ranking import fuse, group_by_post, snippet
-from store import ChunkRow, tsquery
+from store import ChunkRow
 
 
 def test_fuse_adds_reciprocal_ranks() -> None:
@@ -25,11 +25,6 @@ def test_group_by_post_keeps_best_chunk_per_post() -> None:
 def test_snippet_drops_heading_and_cuts() -> None:
     assert snippet("## 제목\n\n본문   첫 줄\n둘째 줄") == "본문 첫 줄 둘째 줄"
     assert snippet("가" * 200, limit=10) == "가" * 10 + "…"
-
-
-def test_tsquery_or_and_dedupe() -> None:
-    assert tsquery(["검색", "linq", "검색"]) == "'검색' | 'linq'"
-    assert tsquery([]) is None
 
 
 class FakeStore:

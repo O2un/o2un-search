@@ -120,7 +120,7 @@ def _db_check_grants(args: argparse.Namespace) -> int:
     ok = True
     for name, var in db.ROLES.items():
         print(f"[{name}]")
-        for query, passed, detail in db.check_grants(env.require(var), db.READABLE[name]):
+        for query, passed, detail in db.check_grants(env.require(var), name):
             ok &= passed
             print(f"  {'OK ' if passed else 'BAD'} {query}: {detail}")
     return 0 if ok else 1

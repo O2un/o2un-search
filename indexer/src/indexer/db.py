@@ -18,10 +18,30 @@ MIGRATIONS = Path(__file__).resolve().parents[2] / "migrations"
 
 ROLES = {"search_writer": "SEARCH_WRITER_URL", "search_reader": "SEARCH_READER_URL"}
 
-# 계정마다 읽혀야 하는 테이블. 검색어 캐시는 검색 서비스(읽기 계정)만 쓴다.
+# 계정마다 읽혀야 하는 테이블과 거부돼야 하는 테이블. 읽기 계정(검색 서비스)은 테이블에 직접
+# 닿지 않고 search 스키마 함수(마이그레이션 006)만 부른다.
+_COMMENTS = ("public.comments", "public.comment_authors")
+_SEARCH_TABLES = ("search.posts", "search.chunks", "search.embed_models", "search.query_embeddings")
 READABLE = {
     "search_writer": ("search.posts", "search.chunks", "search.embed_models"),
-    "search_reader": ("search.posts", "search.chunks", "search.embed_models", "search.query_embeddings"),
+    "search_reader": (),
+}
+DENIED = {
+    "search_writer": _COMMENTS,
+    "search_reader": _COMMENTS + _SEARCH_TABLES,
+}
+# 읽기 계정이 부를 수 있어야 하는 함수. 쓰는 함수(put_query_embedding)는 트랜잭션을 되돌려 시험한다.
+CALLABLE = {
+    "search_writer": (),
+    "search_reader": (
+        "SELECT search.embed_model_id('none')",
+        "SELECT search.cached_query_embedding('none', 0::smallint)",
+        "SELECT count(*) FROM search.keyword_candidates(ARRAY['검색'], NULL, 1)",
+        "SELECT count(*) FROM search.vector_candidates(array_fill(0, ARRAY[768])::vector, 0::smallint, NULL, 1)",
+        "SELECT count(*) FROM search.chunks_by_id(ARRAY[]::text[])",
+        "SELECT search.put_query_embedding('grant-check',"
+        " search.embed_model_id('gemini/gemini-embedding-2'), array_fill(0, ARRAY[768])::vector)",
+    ),
 }
 
 
@@ -66,20 +86,29 @@ def open_login(owner_url: str, role: str) -> str:
     return role_url(owner_url, role, password)
 
 
-def check_grants(url: str, readable: tuple[str, ...]) -> list[tuple[str, bool, str]]:
-    """(질의, 기대대로인지, 결과) 목록. search 테이블은 읽히고 댓글 테이블은 거부돼야 한다."""
+def check_grants(url: str, role: str) -> list[tuple[str, bool, str]]:
+    """(질의, 기대대로인지, 결과) 목록."""
     results: list[tuple[str, bool, str]] = []
-    with psycopg.connect(url, autocommit=True) as conn:
-        for table in readable:
-            try:
-                count = conn.execute(sql.SQL("SELECT count(*) FROM {}").format(sql.SQL(table))).fetchone()
-                results.append((f"SELECT {table}", True, f"{count[0] if count else 0}행"))
-            except errors.Error as error:
-                results.append((f"SELECT {table}", False, type(error).__name__))
-        for table in ("public.comments", "public.comment_authors"):
-            try:
-                conn.execute(sql.SQL("SELECT 1 FROM {} LIMIT 1").format(sql.SQL(table)))
-                results.append((f"SELECT {table}", False, "읽혔다"))
-            except errors.InsufficientPrivilege:
-                results.append((f"SELECT {table}", True, "권한 없음으로 거부"))
+    with psycopg.connect(url) as conn:
+        for table in READABLE[role]:
+            with conn.transaction(force_rollback=True):
+                try:
+                    count = conn.execute(sql.SQL("SELECT count(*) FROM {}").format(sql.SQL(table))).fetchone()
+                    results.append((f"SELECT {table}", True, f"{count[0] if count else 0}행"))
+                except errors.Error as error:
+                    results.append((f"SELECT {table}", False, type(error).__name__))
+        for table in DENIED[role]:
+            with conn.transaction(force_rollback=True):
+                try:
+                    conn.execute(sql.SQL("SELECT 1 FROM {} LIMIT 1").format(sql.SQL(table)))
+                    results.append((f"SELECT {table}", False, "읽혔다"))
+                except errors.InsufficientPrivilege:
+                    results.append((f"SELECT {table}", True, "권한 없음으로 거부"))
+        for call in CALLABLE[role]:
+            with conn.transaction(force_rollback=True):
+                try:
+                    conn.execute(call)
+                    results.append((call, True, "실행됨"))
+                except errors.Error as error:
+                    results.append((call, False, type(error).__name__))
     return results

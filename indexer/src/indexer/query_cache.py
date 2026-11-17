@@ -40,27 +40,30 @@ def embed_query(cache: QueryCache, provider: EmbeddingProvider, query: str) -> t
     return vector, False
 
 
+def vector_literal(vector: list[float]) -> str:
+    return "[" + ",".join(repr(float(v)) for v in vector) + "]"
+
+
 class PgQueryCache:
-    """검색 서비스의 연결을 그대로 쓴다. 넣은 행이 남도록 연결은 autocommit 이어야 한다."""
+    """검색 서비스의 연결을 그대로 쓴다. 넣은 행이 남도록 연결은 autocommit 이어야 한다.
+
+    테이블에 직접 닿지 않고 `search` 스키마 함수(마이그레이션 006)만 부른다.
+    """
 
     def __init__(self, conn) -> None:  # psycopg.Connection
         self._conn = conn
 
     def model_id(self, name: str) -> int | None:
-        row = self._conn.execute("SELECT id FROM search.embed_models WHERE name = %s", (name,)).fetchone()
-        return row[0] if row else None
+        return self._conn.execute("SELECT search.embed_model_id(%s)", (name,)).fetchone()[0]
 
     def get(self, key: str, model_id: int) -> list[float] | None:
-        row = self._conn.execute(
-            "SELECT embedding::text FROM search.query_embeddings"
-            " WHERE query_hash = %s AND embed_model_id = %s",
-            (key, model_id),
-        ).fetchone()
-        return [float(v) for v in row[0].strip("[]").split(",")] if row else None
+        text = self._conn.execute(
+            "SELECT search.cached_query_embedding(%s, %s::smallint)::text", (key, model_id)
+        ).fetchone()[0]
+        return [float(v) for v in text.strip("[]").split(",")] if text else None
 
     def put(self, key: str, model_id: int, vector: list[float]) -> None:
         self._conn.execute(
-            "INSERT INTO search.query_embeddings (query_hash, embed_model_id, embedding)"
-            " VALUES (%s, %s, %s::vector) ON CONFLICT DO NOTHING",
-            (key, model_id, "[" + ",".join(repr(float(v)) for v in vector) + "]"),
+            "SELECT search.put_query_embedding(%s, %s::smallint, %s::vector)",
+            (key, model_id, vector_literal(vector)),
         )

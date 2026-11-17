@@ -1,0 +1,12 @@
+crates/
+.github/
+**/.venv/
+**/target/
+**/__pycache__/
+indexer/tests/
+services/search/tests/
+indexer/scripts/
+# 로컬 비밀값 파일은 올리지 않는다. 배포본은 Vercel 환경 변수를 쓴다.
+**/.env
+**/.env.*
+!**/.env.example

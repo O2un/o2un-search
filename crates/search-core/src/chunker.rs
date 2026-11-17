@@ -45,6 +45,19 @@ pub enum Ext {
     Mdx,
 }
 
+impl std::str::FromStr for Ext {
+    type Err = ();
+
+    /// `"md"`·`"mdx"` 만 받는다.
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "md" => Ok(Ext::Md),
+            "mdx" => Ok(Ext::Mdx),
+            _ => Err(()),
+        }
+    }
+}
+
 fn re(pattern: &str) -> Regex {
     Regex::new(pattern).expect("정규식 패턴")
 }
@@ -57,9 +70,11 @@ static BLOCKQUOTE: LazyLock<Regex> = LazyLock::new(|| re(r"^ {0,3}> ?"));
 static CONTAINER_OPEN: LazyLock<Regex> = LazyLock::new(|| re(r"^ {0,3}(:{3,})[A-Za-z]"));
 static CONTAINER_CLOSE: LazyLock<Regex> = LazyLock::new(|| re(r"^ {0,3}(:{3,})[ \t]*$"));
 static FOOTNOTE_DEF: LazyLock<Regex> = LazyLock::new(|| re(r"^ {0,3}\[\^[^\]]+\]:"));
-static EMBED_DIRECTIVE: LazyLock<Regex> = LazyLock::new(|| re(r"^[ \t]*::(?:youtube|x)(?=[\[{ \t]|$)"));
+static EMBED_DIRECTIVE: LazyLock<Regex> =
+    LazyLock::new(|| re(r"^[ \t]*::(?:youtube|x)(?=[\[{ \t]|$)"));
 static MDX_ESM: LazyLock<Regex> = LazyLock::new(|| re(r"^(?:import|export)\b"));
-static MDX_JSX_LINE: LazyLock<Regex> = LazyLock::new(|| re(r"^[ \t]*(?:</?[A-Za-z][^<>]*>[ \t]*)+$"));
+static MDX_JSX_LINE: LazyLock<Regex> =
+    LazyLock::new(|| re(r"^[ \t]*(?:</?[A-Za-z][^<>]*>[ \t]*)+$"));
 
 // 줄 안의 인라인 문법
 static IMAGE: LazyLock<Regex> = LazyLock::new(|| re(r#"!\[[^\]]*\]\((?:[^()"]|"[^"]*")*\)"#));
@@ -67,7 +82,8 @@ static FOOTNOTE_REF: LazyLock<Regex> = LazyLock::new(|| re(r"\[\^[^\]\s]+\]"));
 static LINK: LazyLock<Regex> = LazyLock::new(|| re(r#"\[([^\]]*)\]\((?:[^()"]|"[^"]*")*\)"#));
 static STRONG: LazyLock<Regex> = LazyLock::new(|| re(r"(\*\*|__)(.+?)\1"));
 static EM_STAR: LazyLock<Regex> = LazyLock::new(|| re(r"\*(.+?)\*"));
-static EM_UNDERSCORE: LazyLock<Regex> = LazyLock::new(|| re(r"(?<![A-Za-z0-9])_(.+?)_(?![A-Za-z0-9])"));
+static EM_UNDERSCORE: LazyLock<Regex> =
+    LazyLock::new(|| re(r"(?<![A-Za-z0-9])_(.+?)_(?![A-Za-z0-9])"));
 static STRIKE: LazyLock<Regex> = LazyLock::new(|| re(r"~~(.+?)~~"));
 static ESCAPE: LazyLock<Regex> = LazyLock::new(|| re(r"\\([!-/:-@\[-`{-~])"));
 static DOUBLE_DASH: LazyLock<Regex> = LazyLock::new(|| re(r"(?<!-)--(?!-)"));
@@ -77,14 +93,19 @@ static CODE_SPAN: LazyLock<Regex> = LazyLock::new(|| re(r"(`+)(.+?)\1"));
 fn strip_frontmatter<'a>(lines: &'a [&'a str]) -> &'a [&'a str] {
     let is_fence = |l: &&str| l.trim_end() == "---";
     match lines.split_first() {
-        Some((first, rest)) if is_fence(first) => rest.iter().position(is_fence).map_or(lines, |i| &rest[i + 1..]),
+        Some((first, rest)) if is_fence(first) => rest
+            .iter()
+            .position(is_fence)
+            .map_or(lines, |i| &rest[i + 1..]),
         _ => lines,
     }
 }
 
 /// 본문 줄에서 이미지와 각주 표시를 지운다.
 fn clean_inline(text: &str) -> String {
-    FOOTNOTE_REF.replace_all(&IMAGE.replace_all(text, ""), "").to_string()
+    FOOTNOTE_REF
+        .replace_all(&IMAGE.replace_all(text, ""), "")
+        .to_string()
 }
 
 /// 이스케이프가 없는 조각을 보이는 글자로 바꾼다.
@@ -173,12 +194,12 @@ fn scan(source: &str, ext: Ext) -> Vec<Item> {
 
     let mut slugger = Slugger::new();
     let mut items: Vec<Item> = Vec::new();
-    let mut fence: Option<(char,usize)> = None;
+    let mut fence: Option<(char, usize)> = None;
     let mut containers: Vec<usize> = Vec::new();
     let mut in_footnote = false;
     let mut in_esm = false;
 
-    for &line in lines{
+    for &line in lines {
         if let Some((char_, length)) = fence {
             items.push(Item::Line(line.to_string()));
             let stripped = line.trim();
@@ -221,7 +242,7 @@ fn scan(source: &str, ext: Ext) -> Vec<Item> {
                 continue;
             }
         }
-        
+
         if ext == Ext::Mdx && containers.is_empty() {
             if MDX_ESM.is_match(line).unwrap() {
                 in_esm = true;
@@ -255,17 +276,17 @@ fn scan(source: &str, ext: Ext) -> Vec<Item> {
         let mut depth = 0;
         while let Some(m) = BLOCKQUOTE.find(quoted).unwrap() {
             quoted = &quoted[m.end()..];
-            depth +=1;
+            depth += 1;
         }
 
         if let Some((level, text)) = parse_atx(quoted) {
             let anchor = slugger.slug(&text);
             if 0 == depth && containers.is_empty() {
-                items.push(Item::Heading(Heading{
-                    level, 
-                    text, 
-                    anchor, 
-                    line: clean_inline(line)
+                items.push(Item::Heading(Heading {
+                    level,
+                    text,
+                    anchor,
+                    line: clean_inline(line),
                 }));
                 continue;
             }
@@ -280,8 +301,8 @@ fn scan(source: &str, ext: Ext) -> Vec<Item> {
 /// 줄 끝 공백을 떼고, 연속 빈 줄을 하나로, 앞뒤 빈 줄을 없애고 '\n' 으로 잇는다.
 fn normalize(lines: &[String]) -> String {
     let mut out: Vec<&str> = Vec::new();
-    for line in lines{
-        let trimmed= line.trim_end();
+    for line in lines {
+        let trimmed = line.trim_end();
         if trimmed.is_empty() && matches!(out.last(), None | Some(&"")) {
             continue;
         }
@@ -292,13 +313,13 @@ fn normalize(lines: &[String]) -> String {
     while matches!(out.last(), Some(&"")) {
         out.pop();
     }
-    
+
     out.join("\n")
 }
 
 /// 빈 줄을 경계로 문단을 나눈다. 코드 블록 안의 빈 줄에서는 나누지 않는다.
 fn blocks(body: &str) -> Vec<String> {
-    let mut blocks= Vec::new();
+    let mut blocks = Vec::new();
     let mut current = Vec::new();
     let mut fence: Option<(char, usize)> = None;
 
@@ -317,7 +338,10 @@ fn blocks(body: &str) -> Vec<String> {
         } else {
             let stripped = line.trim();
             let f = fence.unwrap();
-            if false == stripped.is_empty() && stripped.chars().all(|c| c == f.0) && f.1 <= stripped.len() {
+            if false == stripped.is_empty()
+                && stripped.chars().all(|c| c == f.0)
+                && f.1 <= stripped.len()
+            {
                 fence = None;
             }
         }
@@ -346,13 +370,16 @@ fn hard_split(block: &str) -> Vec<String> {
             line = &line[cut_pos..];
         }
 
-        let candidate = if false == current.is_empty(){ format!("{current}\n{line}")} else { line.to_string()};
+        let candidate = if false == current.is_empty() {
+            format!("{current}\n{line}")
+        } else {
+            line.to_string()
+        };
 
         if over_limit(&candidate) {
             pieces.push(current);
             current = line.to_string();
-        }
-        else {
+        } else {
             current = candidate;
         }
     }
@@ -374,14 +401,21 @@ fn split(body: &str) -> Vec<String> {
     let mut current: String = String::new();
 
     for block in blocks(body) {
-        let pieces = if over_limit(&block) {hard_split(&block)} else {vec![block]};
+        let pieces = if over_limit(&block) {
+            hard_split(&block)
+        } else {
+            vec![block]
+        };
         for piece in pieces {
-            let candidate = if false == current.is_empty() {format!("{current}\n\n{piece}")} else {piece.clone()};
+            let candidate = if false == current.is_empty() {
+                format!("{current}\n\n{piece}")
+            } else {
+                piece.clone()
+            };
             if over_limit(&candidate) {
                 parts.push(current);
                 current = piece;
-            }
-            else {
+            } else {
                 current = candidate;
             }
         }
@@ -401,13 +435,16 @@ pub fn content_hash(heading_path: &str, body: &str) -> String {
 
 /// 글 원문 하나를 청크 목록으로 자른다.
 pub fn chunk(post_source: &str, post_id: &str, ext: Ext) -> Vec<Chunk> {
-    let mut sections:Vec<(String,String, Vec<String>)> = vec![(String::new(),String::new(), vec![])];
-    let mut stack:Vec<Heading> = vec![];
+    let mut sections: Vec<(String, String, Vec<String>)> =
+        vec![(String::new(), String::new(), vec![])];
+    let mut stack: Vec<Heading> = vec![];
 
     for item in scan(post_source, ext) {
         let line = match item {
             Item::Heading(heading)
-                if 2 == heading.level || (3 <= heading.level && stack.iter().any(|h| heading.level - 1 == h.level)) =>
+                if 2 == heading.level
+                    || (3 <= heading.level
+                        && stack.iter().any(|h| heading.level - 1 == h.level)) =>
             {
                 while matches!(stack.last(), Some(top) if heading.level <= top.level) {
                     stack.pop();
@@ -421,7 +458,11 @@ pub fn chunk(post_source: &str, post_id: &str, ext: Ext) -> Vec<Chunk> {
             Item::Heading(heading) => heading.line,
             Item::Line(line) => line,
         };
-        sections.last_mut().expect("도입부 절이 항상 있다").2.push(line);
+        sections
+            .last_mut()
+            .expect("도입부 절이 항상 있다")
+            .2
+            .push(line);
     }
 
     let mut chunks = Vec::new();
@@ -433,7 +474,11 @@ pub fn chunk(post_source: &str, post_id: &str, ext: Ext) -> Vec<Chunk> {
         let parts = split(&body);
         let numbered = 1 < parts.len();
         for (number, part) in (1..).zip(parts) {
-            let chunk_id = if numbered { format!("{post_id}#{anchor}#{number}") } else { format!("{post_id}#{anchor}") };
+            let chunk_id = if numbered {
+                format!("{post_id}#{anchor}#{number}")
+            } else {
+                format!("{post_id}#{anchor}")
+            };
             chunks.push(Chunk {
                 chunk_id,
                 post_id: post_id.to_string(),
@@ -652,7 +697,13 @@ mod tests {
         assert_eq!(render(&scan(source, Ext::Mdx)), ["L|", "L|본문"]);
         assert_eq!(
             scan_md(source),
-            ["L|import A from 'a'", "L|import B from 'b'", "L|", "L|<Comp />", "L|본문"]
+            [
+                "L|import A from 'a'",
+                "L|import B from 'b'",
+                "L|",
+                "L|<Comp />",
+                "L|본문"
+            ]
         );
     }
 
@@ -754,5 +805,14 @@ mod tests {
             content_hash("A > B", "## B\n\n내용"),
             "951a9db9ed8c660cdf6bc2ffcab21c26a8db0d8a2cadd74a168dc935e3f1e9dc"
         );
+    }
+
+    #[test]
+    fn ext_parses_md_and_mdx_only() {
+        assert_eq!("md".parse::<Ext>(), Ok(Ext::Md));
+        assert_eq!("mdx".parse::<Ext>(), Ok(Ext::Mdx));
+        for bad in ["", "MD", "markdown", ".md", "txt"] {
+            assert_eq!(bad.parse::<Ext>(), Err(()), "입력: {bad:?}");
+        }
     }
 }

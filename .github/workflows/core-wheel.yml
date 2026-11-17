@@ -36,7 +36,7 @@ jobs:
       - name: Import check
         run: |
           python -m pip install crates/search-core/dist/*.whl
-          python -c "import o2un_search_core as m; print(m.__name__, [n for n in ('chunk', 'tokenize') if hasattr(m, n)])"
+          python -c "import o2un_search_core as m; assert m.tokenize('검색 엔진') == ['검색', '엔진']; assert [c[0] for c in m.chunk('## 절\n본문\n', 'p', 'md')] == ['p#절']; print('ok')"
       - uses: actions/upload-artifact@v4
         with:
           name: wheel

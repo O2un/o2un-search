@@ -41,13 +41,10 @@ def embed_query(cache: QueryCache, provider: EmbeddingProvider, query: str) -> t
 
 
 class PgQueryCache:
-    def __init__(self, url: str) -> None:
-        import psycopg
+    """검색 서비스의 연결을 그대로 쓴다. 넣은 행이 남도록 연결은 autocommit 이어야 한다."""
 
-        self._conn = psycopg.connect(url, autocommit=True)
-
-    def close(self) -> None:
-        self._conn.close()
+    def __init__(self, conn) -> None:  # psycopg.Connection
+        self._conn = conn
 
     def model_id(self, name: str) -> int | None:
         row = self._conn.execute("SELECT id FROM search.embed_models WHERE name = %s", (name,)).fetchone()

@@ -29,13 +29,20 @@ class EmbeddingProvider(Protocol):
     def embed_query(self, query: str) -> list[float]: ...
 
 
-def make_provider() -> EmbeddingProvider:
-    """공급자는 여기서만 만든다."""
+def make_provider(*, retry: bool = True, timeout_s: float | None = None) -> EmbeddingProvider:
+    """공급자는 여기서만 만든다.
+
+    색인은 기본값(한도에 걸리면 기다렸다 다시 시도)을 쓴다. 검색은 `retry=False` 와
+    `timeout_s` 로 기다리지 않고 바로 실패를 받는다.
+    """
     name = os.environ.get("EMBEDDING_PROVIDER", "gemini")
     if name == "gemini":
         from .gemini import GeminiEmbedding
 
         from . import env
 
-        return GeminiEmbedding(api_key=env.require("GEMINI_API_KEY"), dim=EMBED_DIM)
+        attempts = {} if retry else {"max_attempts": 1}
+        return GeminiEmbedding(
+            api_key=env.require("GEMINI_API_KEY"), dim=EMBED_DIM, timeout_s=timeout_s, **attempts
+        )
     raise SystemExit(f"알 수 없는 EMBEDDING_PROVIDER: {name}")

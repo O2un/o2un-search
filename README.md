@@ -5,7 +5,7 @@
 작업 중이다.
 
 - `indexer/` — 공개 글을 청크로 잘라 Postgres와 맞추고 임베딩을 채운다. 블로그 레포가 재사용 워크플로 `.github/workflows/indexer.yml`로 실행한다.
-- `crates/search-core/` — 청커·토크나이저의 Rust 구현(PyO3). `.github/workflows/core-wheel.yml`이 wheel로 빌드한다. 공개 글 전체에서 Python 구현과 출력이 같다(`indexer compare-core`). indexer는 `INDEXER_CORE`(`python` | `rust`)로 구현을 고르고, CI는 아직 Python 구현으로 돈다.
+- `crates/search-core/` — 청커·토크나이저의 Rust 구현(PyO3). `.github/workflows/core-wheel.yml`이 wheel로 빌드한다. 공개 글 전체에서 Python 구현과 출력이 같다(`indexer compare-core`). indexer는 `INDEXER_CORE`(`python` | `rust`, 기본 `python`)로 구현을 고른다. CI는 Rust 구현으로 돌고, 실행마다 `compare-core`로 Python 구현과 대조한다.
 
 ## 벤치마크
 

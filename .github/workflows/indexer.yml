@@ -22,6 +22,9 @@ jobs:
   index:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # 청커·토크나이저는 Rust 구현을 쓴다. wheel 은 `uv sync` 가 core-v{버전} Release 에서 받는다.
+    env:
+      INDEXER_CORE: rust
     steps:
       # 호출한 블로그 레포의 해당 커밋. 비공개 레포지만 호출한 레포의 토큰으로 받는다.
       - uses: actions/checkout@v4
@@ -68,6 +71,16 @@ jobs:
           set -o pipefail
           { echo '### check-anchors'; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           uv run --frozen indexer check-anchors --blog ../../blog | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      # Python 구현(기준)과 Rust 구현이 공개 글 전체에서 같은 청크·토큰을 내는지 본다.
+      # 차이 출력에 글 원문이 찍히지만 이 로그는 호출한 블로그 레포(비공개)에 남는다.
+      - name: Compare core
+        working-directory: search/indexer
+        run: |
+          set -o pipefail
+          { echo '### compare-core'; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          uv run --frozen indexer compare-core --blog ../../blog | tee -a "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Sync

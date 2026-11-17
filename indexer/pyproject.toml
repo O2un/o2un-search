@@ -6,6 +6,9 @@ requires-python = ">=3.12"
 dependencies = [
     "google-genai>=1.0",
     "psycopg[binary]>=3.2",
+    # Rust 구현. Release wheel 은 manylinux x86_64 만 있어 Linux(CI)에서만 깐다. 로컬 Windows 는
+    # crates/search-core 에서 maturin develop 으로 깔고, `uv sync` 뒤에는 다시 깐다(sync 가 지운다).
+    "o2un-search-core @ https://github.com/O2un/o2un-search/releases/download/core-v0.2.0/o2un_search_core-0.2.0-cp312-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl ; sys_platform == 'linux'",
 ]
 
 [project.scripts]
@@ -17,6 +20,10 @@ dev = ["pytest>=8"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+# Release 주소를 직접 가리키는 의존성(o2un-search-core)을 허용한다.
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/indexer"]

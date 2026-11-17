@@ -16,10 +16,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
-from .chunker import chunk
+from .core import chunk, tokenize
 from .corpus import is_published, iter_posts
 from .site import SitePost, load_site_index
-from .tokenizer import tokenize
 
 
 @dataclass(frozen=True)

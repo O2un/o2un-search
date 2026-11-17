@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from pathlib import Path
 
-from .chunker import chunk
+from .core import chunk
 from .corpus import Post, is_published, iter_posts
 
 

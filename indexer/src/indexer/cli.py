@@ -22,6 +22,24 @@ def _check_anchors(args: argparse.Namespace) -> int:
     return 0 if report.ok else 1
 
 
+def _compare_core(args: argparse.Namespace) -> int:
+    from . import compare, core
+
+    try:
+        rust = core.load("rust")
+    except ImportError:
+        print("Rust 모듈(o2un_search_core)이 설치되지 않아 대조할 수 없다", file=sys.stderr)
+        return 1
+    report = compare.run(args.blog, core.load("python"), rust)
+    for problem in report.problems:
+        print(problem)
+    print(
+        f"공개 글 {report.posts}편·청크 {report.chunks}개 대조, "
+        f"차이 {len(report.problems)}편"
+    )
+    return 0 if report.ok else 1
+
+
 def _sync(args: argparse.Namespace) -> int:
     from . import sync
     from .store import PgStore
@@ -101,6 +119,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     blog_args(check)
     check.set_defaults(run=_check_anchors)
+
+    compare_cmd = commands.add_parser(
+        "compare-core", help="공개 글 전체를 Python·Rust 두 구현으로 잘라 청크·토큰을 대조한다"
+    )
+    compare_cmd.add_argument("--blog", type=Path, required=True, help="블로그 레포 경로")
+    compare_cmd.set_defaults(run=_compare_core)
 
     sync_cmd = commands.add_parser(
         "sync", help="공개 글 전체를 청크로 잘라 색인과 맞춘다. 임베딩은 하지 않는다"

@@ -21,6 +21,12 @@ def test_missing_or_wrong_key_is_401(client) -> None:
 def test_unset_key_rejects_everything(client, monkeypatch) -> None:
     monkeypatch.delenv("SEARCH_API_KEY")
     assert client.post("/search", json={"query": "검색"}, headers={"x-search-key": ""}).status_code == 401
+    assert client.post("/warm", headers={"x-search-key": ""}).status_code == 401
+
+
+def test_warm_needs_key(client) -> None:
+    assert client.post("/warm").status_code == 401
+    assert client.post("/warm", headers={"x-search-key": "nope"}).status_code == 401
 
 
 @pytest.mark.parametrize(
@@ -32,6 +38,7 @@ def test_unset_key_rejects_everything(client, monkeypatch) -> None:
         {"query": "검색", "limit": 21},
         {"query": "검색", "section": "../x"},
         {"query": 3},
+        {"query": "검색", "mode": "vector"},
         {},
     ],
 )

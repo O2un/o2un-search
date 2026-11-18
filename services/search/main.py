@@ -1,4 +1,4 @@
-"""검색 API. `POST /search` 하나이고, 공유 키 헤더가 맞는 요청만 받는다.
+"""검색 API. `POST /search`와 미리 깨우기 `POST /warm`이고, 공유 키 헤더가 맞는 요청만 받는다.
 
 환경 변수
 - SEARCH_READER_URL: Neon 읽기 계정 연결 문자열
@@ -20,6 +20,7 @@ import hmac  # noqa: E402
 import logging  # noqa: E402
 import os  # noqa: E402
 import re  # noqa: E402
+from typing import Literal  # noqa: E402
 from urllib.parse import urlsplit  # noqa: E402
 
 import psycopg  # noqa: E402
@@ -79,6 +80,8 @@ class SearchRequest(BaseModel):
     query: str
     section: str | None = None
     limit: int | None = None
+    # keyword: 공급자를 부르지 않고 키워드 후보만 쓴다. 블로그가 먼저 보일 결과를 받을 때 쓴다.
+    mode: Literal["hybrid", "keyword"] = "hybrid"
 
 
 def _bad_request() -> JSONResponse:
@@ -117,10 +120,23 @@ def search_posts(body: SearchRequest, x_search_key: str | None = Header(default=
 
     started = time.perf_counter()
     with psycopg.connect(os.environ["SEARCH_READER_URL"], autocommit=True) as conn:
-        result = search.run(Store(conn), PgQueryCache(conn), _PROVIDER, query, body.section, limit)
+        provider = _PROVIDER if body.mode == "hybrid" else None
+        result = search.run(Store(conn), PgQueryCache(conn), provider, query, body.section, limit)
     took_ms = round((time.perf_counter() - started) * 1000)
     if _first_request:
         log.info("first request on instance: %dms (import %dms)", took_ms, _import_ms)
         _first_request = False
-    log.info("search %s: %d results, %dms", result.mode, len(result.results), took_ms)
-    return {"mode": result.mode, "results": result.results}
+    log.info("search %s (asked %s): %d results, %dms", result.mode, body.mode, len(result.results), took_ms)
+    return {"mode": result.mode, "results": result.results, "terms": result.terms}
+
+
+@app.post("/warm", status_code=204)
+def warm(x_search_key: str | None = Header(default=None)):
+    """방문자가 검색창을 열면 블로그가 부른다. 인스턴스를 띄우고 쉬고 있던 DB를 깨운다."""
+    if not _authorized(x_search_key):
+        return JSONResponse({"detail": "unauthorized"}, status_code=401)
+    started = time.perf_counter()
+    with psycopg.connect(os.environ["SEARCH_READER_URL"], autocommit=True) as conn:
+        conn.execute("SELECT 1")
+    log.info("warm: db %dms", round((time.perf_counter() - started) * 1000))
+    return None

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import re
+import unicodedata
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Protocol
@@ -19,7 +21,7 @@ _pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="embed")
 
 
 class Candidates(Protocol):
-    def keyword(self, tokens: list[str], section: str | None) -> list[str]: ...
+    def keyword(self, words: list[list[str]], section: str | None) -> list[str]: ...
 
     def vector(self, vector: list[float], model_id: int, section: str | None) -> list[str]: ...
 
@@ -41,10 +43,33 @@ class DeadlineProvider:
         return _pool.submit(self._inner.embed_query, query).result(timeout=self._seconds)
 
 
+# 토크나이저가 토큰을 만드는 구간과 같다: 한글 음절, ASCII 영문·숫자.
+_RUN = re.compile(r"[가-힣]+|[A-Za-z0-9]+")
+_HANGUL_RUN = re.compile(r"[가-힣]{3,}")
+
+
+def query_words(query: str) -> list[tuple[str, list[str]]]:
+    """검색어를 단어로 나눈다. (어간, 토큰) 목록이고 어간이 같은 단어는 한 번만 둔다.
+
+    한글 세 음절 이상은 끝 음절을 뗀다. 조사·어미("렌더링이", "까맣게", "만들기")가 단어마다
+    달라 그대로 두면 글에 쓰인 꼴과 맞지 않는다. 어간은 결과 강조에도 쓴다.
+    """
+    words: list[tuple[str, list[str]]] = []
+    seen: set[str] = set()
+    for run in _RUN.findall(unicodedata.normalize("NFC", query)):
+        stem = run[:-1] if _HANGUL_RUN.fullmatch(run) else run
+        tokens = core.tokenize(stem)
+        if tokens and stem.lower() not in seen:
+            seen.add(stem.lower())
+            words.append((stem, tokens))
+    return words
+
+
 @dataclass(frozen=True)
 class Result:
     mode: str  # "hybrid" | "keyword"
     results: list[dict]
+    terms: list[str]  # 결과에서 강조할 검색어 어간
 
 
 def _query_vector(cache: QueryCache, provider, query: str) -> tuple[list[float], int] | None:
@@ -65,7 +90,9 @@ def _query_vector(cache: QueryCache, provider, query: str) -> tuple[list[float],
 
 
 def run(store: Candidates, cache: QueryCache, provider, query: str, section: str | None, limit: int) -> Result:
-    keyword = store.keyword(core.tokenize(query), section)
+    words = query_words(query)
+    terms = [stem for stem, _ in words]
+    keyword = store.keyword([tokens for _, tokens in words], section) if words else []
     embedded = _query_vector(cache, provider, query)
     vector = store.vector(embedded[0], embedded[1], section) if embedded else []
 
@@ -85,11 +112,11 @@ def run(store: Candidates, cache: QueryCache, provider, query: str, section: str
             "best": {
                 "anchor": rows[hit.chunk_id].anchor,
                 "heading_path": rows[hit.chunk_id].heading_path,
-                "snippet": snippet(rows[hit.chunk_id].body),
+                "snippet": snippet(rows[hit.chunk_id].body, terms),
             },
             "keyword": hit.post_id in keyword_posts,
             "score": round(hit.score, 6),
         }
         for hit in hits
     ]
-    return Result("hybrid" if embedded else "keyword", results)
+    return Result("hybrid" if embedded else "keyword", results, terms)

@@ -27,6 +27,23 @@ def test_snippet_drops_heading_and_cuts() -> None:
     assert snippet("가" * 200, limit=10) == "가" * 10 + "…"
 
 
+def test_snippet_moves_to_first_term() -> None:
+    body = "앞 " * 150 + "공포 연출이 좋았다"
+    cut = snippet(body, ["공포"])
+    assert cut.startswith("…") and "공포 연출이 좋았다" in cut
+    # 앞부분에 있으면 그대로 앞에서 시작한다.
+    assert snippet("공포 연출 " + "뒤 " * 100, ["공포"]).startswith("공포")
+    assert snippet("URP 전환", ["urp"]).startswith("URP")
+
+
+def test_query_words_strips_endings_and_dedupes() -> None:
+    words = search.query_words("유니티 렌더링이 까맣게 나오는 이유 C# 유니티")
+    assert [stem for stem, _ in words] == ["유니", "렌더링", "까맣", "나오", "이유", "C"]
+    assert words[1][1] == ["렌더", "더링"]
+    # 한 음절은 토큰이 없어 단어가 되지 않는다.
+    assert search.query_words("뭐 ?") == []
+
+
 class FakeStore:
     def __init__(self, rows: list[ChunkRow], keyword: list[str], vector: list[str]) -> None:
         self.rows = {row.chunk_id: row for row in rows}
@@ -34,7 +51,7 @@ class FakeStore:
         self._vector = vector
         self.vector_calls = 0
 
-    def keyword(self, tokens, section):
+    def keyword(self, words, section):
         return [c for c in self._keyword if section is None or self.rows[c].href.startswith(f"/{section}/")]
 
     def vector(self, vector, model_id, section):

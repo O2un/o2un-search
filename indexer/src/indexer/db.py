@@ -37,6 +37,7 @@ CALLABLE = {
         "SELECT search.embed_model_id('none')",
         "SELECT search.cached_query_embedding('none', 0::smallint)",
         "SELECT count(*) FROM search.keyword_candidates(ARRAY['검색'], NULL, 1)",
+        "SELECT count(*) FROM search.keyword_matches(ARRAY['검색'], ARRAY[0], NULL, 1, 0.5)",
         "SELECT count(*) FROM search.vector_candidates(array_fill(0, ARRAY[768])::vector, 0::smallint, NULL, 1)",
         "SELECT count(*) FROM search.chunks_by_id(ARRAY[]::text[])",
         "SELECT search.put_query_embedding('grant-check',"

@@ -36,10 +36,30 @@ def group_by_post(scores: dict[str, float], post_of: dict[str, str], limit: int)
     return list(best.values())[:limit]
 
 
-def snippet(body: str, limit: int = SNIPPET_CHARS) -> str:
-    """청크 본문 앞부분. 맨 앞의 제목 줄은 `heading_path` 와 겹치므로 뺀다."""
+# 검색어가 본문 중간에 있으면 그 앞을 이만큼만 남기고 자른다.
+SNIPPET_LEAD = 30
+
+
+def snippet(body: str, terms: list[str] = (), limit: int = SNIPPET_CHARS) -> str:
+    """청크 본문에서 검색어가 처음 나오는 곳 근처. 없으면 앞부분.
+
+    맨 앞의 제목 줄은 `heading_path` 와 겹치므로 뺀다.
+    """
     lines = body.splitlines()
     while lines and (lines[0].lstrip().startswith("#") or not lines[0].strip()):
         lines.pop(0)
     text = " ".join(" ".join(lines).split())
-    return text if len(text) <= limit else text[:limit].rstrip() + "…"
+    lowered = text.lower()
+    found = [i for i in (lowered.find(term.lower()) for term in terms if term) if i >= 0]
+    first = min(found, default=0)
+    start = 0
+    # 앞부분에서 검색어가 보이면 그대로 둔다.
+    if first > limit - SNIPPET_LEAD:
+        start = first - SNIPPET_LEAD
+        # 단어 중간에서 자르지 않도록 가까운 앞쪽 공백까지 당긴다.
+        space = text.rfind(" ", 0, start)
+        if space >= 0 and start - space < 15:
+            start = space + 1
+    head = "…" if start > 0 else ""
+    rest = text[start:]
+    return head + (rest if len(rest) <= limit else rest[:limit].rstrip() + "…")

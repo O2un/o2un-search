@@ -97,6 +97,19 @@ def _embed(args: argparse.Namespace) -> int:
     return 1 if summary.rate_limited else 0
 
 
+def _cache_prune(args: argparse.Namespace) -> int:
+    from .query_cache import RETENTION_DAYS
+    from .store import PgStore
+
+    store = PgStore(env.require("SEARCH_WRITER_URL"))
+    try:
+        deleted = store.prune_query_cache(RETENTION_DAYS)
+    finally:
+        store.close()
+    print(f"검색어 캐시 {RETENTION_DAYS}일 지난 행 {deleted}개 삭제")
+    return 0
+
+
 def _db_migrate(args: argparse.Namespace) -> int:
     from . import db
 
@@ -170,6 +183,12 @@ def main(argv: list[str] | None = None) -> int:
         "--limit", type=int, help="이번 실행에서 임베딩할 최대 개수. 실제 API 로 검증할 때 쓴다"
     )
     embed_cmd.set_defaults(run=_embed)
+
+    cache_cmd = commands.add_parser("cache", help="검색어 임베딩 캐시 (SEARCH_WRITER_URL)")
+    cache_commands = cache_cmd.add_subparsers(dest="cache_command", required=True)
+    cache_commands.add_parser(
+        "prune", help="보존 기간이 지난 캐시 행을 지우고 지운 수를 출력한다"
+    ).set_defaults(run=_cache_prune)
 
     db_cmd = commands.add_parser("db", help="search 스키마와 계정 (SEARCH_OWNER_URL)")
     db_commands = db_cmd.add_subparsers(dest="db_command", required=True)

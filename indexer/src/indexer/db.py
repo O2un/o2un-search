@@ -23,7 +23,7 @@ ROLES = {"search_writer": "SEARCH_WRITER_URL", "search_reader": "SEARCH_READER_U
 _COMMENTS = ("public.comments", "public.comment_authors")
 _SEARCH_TABLES = ("search.posts", "search.chunks", "search.embed_models", "search.query_embeddings")
 READABLE = {
-    "search_writer": ("search.posts", "search.chunks", "search.embed_models"),
+    "search_writer": ("search.posts", "search.chunks", "search.embed_models", "search.query_embeddings"),
     "search_reader": (),
 }
 DENIED = {

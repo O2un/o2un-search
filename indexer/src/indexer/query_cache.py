@@ -12,6 +12,11 @@ from typing import Protocol
 
 from .embedding import EmbeddingProvider
 
+# 만든 지 이만큼 지난 캐시 행은 색인 워크플로가 지운다(`indexer cache prune`).
+# 만든 시각만 본다. 마지막 사용 시각을 남기려면 읽기 계정에 UPDATE 를 열어야 한다.
+# 지운 뒤 다시 들어온 검색어는 공급자를 한 번 더 부를 뿐이다.
+RETENTION_DAYS = 30
+
 
 def query_hash(query: str) -> str:
     normalized = " ".join(unicodedata.normalize("NFC", query).split())

@@ -123,3 +123,14 @@ class PgStore:
                     for chunk_id, vector in zip(chunk_ids, vectors, strict=True)
                 ],
             )
+
+    # cache
+
+    def prune_query_cache(self, days: int) -> int:
+        """만든 지 days 일이 지난 검색어 캐시 행을 지우고 지운 수를 돌려준다."""
+        with self._conn.transaction(), self._conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM search.query_embeddings WHERE created_at < now() - make_interval(days => %s)",
+                (days,),
+            )
+            return cur.rowcount

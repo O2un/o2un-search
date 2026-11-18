@@ -62,6 +62,7 @@ jobs:
           cache-dependency-glob: search/indexer/uv.lock
 
       - name: Install indexer
+        id: install
         working-directory: search/indexer
         run: uv sync --frozen
 
@@ -104,4 +105,17 @@ jobs:
           set -o pipefail
           { echo '### embed'; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           uv run --frozen indexer embed 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      # 검색어 캐시에서 보존 기간이 지난 행을 지운다. 글과 상관없는 정리라, embed 가 호출 한도로
+      # 실패해도 돈다. indexer 를 설치하지 못했으면 돌 수 없으므로 건너뛴다.
+      - name: Prune query cache
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        working-directory: search/indexer
+        env:
+          SEARCH_WRITER_URL: ${{ secrets.SEARCH_WRITER_URL }}
+        run: |
+          set -o pipefail
+          { echo '### cache prune'; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          uv run --frozen indexer cache prune 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"

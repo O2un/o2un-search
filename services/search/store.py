@@ -1,6 +1,6 @@
 """검색 서비스의 DB 조회. 읽기 계정(SEARCH_READER_URL)으로 `search` 스키마 함수만 부른다.
 
-함수 정의는 indexer/migrations/006_search_functions.sql, 008_keyword_cover.sql 에 있다. 서비스는 테이블 구조를 모른다.
+함수 정의는 indexer/migrations/006_search_functions.sql, 008_keyword_cover.sql, 009_embed_context.sql 에 있다. 서비스는 테이블 구조를 모른다.
 """
 
 from __future__ import annotations
@@ -52,3 +52,10 @@ class Store:
             "SELECT * FROM search.chunks_by_id(%s::text[])", (chunk_ids,)
         ).fetchall()
         return {row[0]: ChunkRow(*row) for row in rows}
+
+    def descriptions(self, post_ids: list[str]) -> dict[str, str]:
+        """글 설명(마이그레이션 009)."""
+        rows = self._conn.execute(
+            "SELECT * FROM search.post_descriptions(%s::text[])", (post_ids,)
+        ).fetchall()
+        return {row[0]: row[1] for row in rows}

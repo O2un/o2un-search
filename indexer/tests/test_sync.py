@@ -48,7 +48,10 @@ class MemoryStore:
     def load(self) -> State:
         return State(
             posts=dict(self.posts),
-            chunks={chunk_id: c.row.content_hash for chunk_id, c in self.chunks.items()},
+            chunks={
+                chunk_id: (c.row.content_hash, c.row.context_chunk_id, c.row.embed_hash)
+                for chunk_id, c in self.chunks.items()
+            },
         )
 
     def delete_posts(self, post_ids: list[str]) -> None:
@@ -78,7 +81,14 @@ class MemoryStore:
 
     def pending(self, model_id: int) -> list[Pending]:
         return [
-            Pending(chunk_id, self.posts[c.row.post_id].title, c.row.heading_path, c.row.body)
+            Pending(
+                chunk_id,
+                self.posts[c.row.post_id].title,
+                c.row.heading_path,
+                c.row.body,
+                self.chunks[c.row.context_chunk_id].row.body if c.row.context_chunk_id else None,
+                c.row.embed_hash != "",
+            )
             for chunk_id, c in sorted(self.chunks.items())
             if c.model_id != model_id
         ]
@@ -99,7 +109,16 @@ class Blog:
         self.dist = root / "dist" / "client"
         self.posts: dict[str, dict] = {}
 
-    def write(self, post_id: str, title: str, body: str, draft: bool = False, section: str = "devlog") -> None:
+    def write(
+        self,
+        post_id: str,
+        title: str,
+        body: str,
+        draft: bool = False,
+        section: str = "devlog",
+        search_text: str = "",
+        description: str = "",
+    ) -> None:
         path = self.root / "src" / "content" / "blog" / post_id / "index.md"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
@@ -109,7 +128,14 @@ class Blog:
         if draft:
             self.posts.pop(post_id, None)
         else:
-            self.posts[post_id] = {"id": post_id, "href": f"/{section}/{post_id}/", "title": title, "section": section}
+            self.posts[post_id] = {
+                "id": post_id,
+                "href": f"/{section}/{post_id}/",
+                "title": title,
+                "description": description,
+                "searchText": search_text,
+                "section": section,
+            }
         self.build()
 
     def build(self) -> None:
@@ -124,8 +150,11 @@ class Blog:
             (self.dist / section / "search-index.json").write_text(json.dumps(items), encoding="utf-8")
 
 
-BODY_A = "도입부.\n\n## 첫 절\n\n첫 절 본문.\n\n## 둘째 절\n\n둘째 절 본문."
-BODY_B = "## 하나\n\n하나 본문.\n\n## 둘\n\n둘 본문.\n\n## 셋\n\n셋 본문."
+# 짧은 절 규칙(embed.SHORT_CHUNK_CHARS)에 걸리지 않게 절마다 이 문장을 붙인다.
+PAD = " 짧은 절로 잡히지 않도록 같은 문장을 길게 이어 적었다." * 4
+INTRO_A = f"도입부.{PAD}"
+BODY_A = f"{INTRO_A}\n\n## 첫 절\n\n첫 절 본문.{PAD}\n\n## 둘째 절\n\n둘째 절 본문.{PAD}"
+BODY_B = f"## 하나\n\n하나 본문.{PAD}\n\n## 둘\n\n둘 본문.{PAD}\n\n## 셋\n\n셋 본문.{PAD}"
 
 
 @pytest.fixture
@@ -234,7 +263,7 @@ def test_intro_chunk_uses_post_title(blog: Blog) -> None:
     _sync(blog, store)
     provider = FakeProvider()
     embed.run(store, provider)
-    assert EmbeddingDocument(title="글 A", text="도입부.") in provider.inputs
+    assert EmbeddingDocument(title="글 A", text=INTRO_A) in provider.inputs
 
 
 def test_title_change_embeds_with_new_title(blog: Blog, store: MemoryStore) -> None:
@@ -269,7 +298,7 @@ def test_embed_dry_run_changes_nothing(blog: Blog) -> None:
 
 
 def test_heading_only_chunk_is_skipped(blog: Blog) -> None:
-    blog.write("선택/c", "글 C", "## 본문 절\n\n내용.\n\n## 참고 자료\n\n[^1]: 출처")
+    blog.write("선택/c", "글 C", f"## 본문 절\n\n내용.{PAD}\n\n## 참고 자료\n\n[^1]: 출처")
     store = MemoryStore()
     _sync(blog, store)
     provider = FakeProvider()
@@ -284,3 +313,104 @@ def test_limit_embeds_at_most_n(blog: Blog) -> None:
     _sync(blog, store)
     assert embed.run(store, FakeProvider(), limit=2).embedded == 2
     assert store.empty() == 4
+
+
+# 짧은 절 (3f)
+
+SHORT_BODY = f"도입부.\n\n## 긴 절\n\n긴 절 본문.{PAD}\n\n## 짧은 절\n\n두 문장. 짧다.\n\n## 끝 절\n\n끝 절 본문.{PAD}"
+
+
+def test_content_length_ignores_heading_and_folds_spaces() -> None:
+    assert embed.content_length("## 제목\n\n가  나\n다") == len("가 나 다")
+    assert embed.content_length("도입부.") == len("도입부.")
+    assert embed.content_length("## 참고 자료\n") == 0
+
+
+def test_short_chunk_embeds_with_previous_section(blog: Blog) -> None:
+    blog.write("선택/c", "글 C", SHORT_BODY)
+    store = MemoryStore()
+    _sync(blog, store)
+    assert store.chunks["선택/c#짧은-절"].row.context_chunk_id == "선택/c#긴-절"
+    assert store.chunks["선택/c#긴-절"].row.context_chunk_id is None
+    provider = FakeProvider()
+    embed.run(store, provider)
+    docs = {doc.title: doc.text for doc in provider.inputs}
+    # 자기 본문 뒤에 이웃 본문을 붙인다
+    assert docs["글 C > 짧은 절"] == f"## 짧은 절\n\n두 문장. 짧다.\n\n## 긴 절\n\n긴 절 본문.{PAD}"
+    # 앞 절이 없는 도입부는 다음 절을 붙인다
+    assert docs["글 C"] == f"도입부.\n\n## 긴 절\n\n긴 절 본문.{PAD}"
+    # 긴 절과 청크 본문은 그대로다
+    assert docs["글 C > 끝 절"] == f"## 끝 절\n\n끝 절 본문.{PAD}"
+    assert store.chunks["선택/c#짧은-절"].row.body == "## 짧은 절\n\n두 문장. 짧다."
+
+
+def test_short_chunk_skips_heading_only_neighbour() -> None:
+    bodies = ["## 본문\n\n" + "가" * 120, "## 참고\n", "## 짧은 절\n\n짧다."]
+    assert embed.contexts(bodies) == [None, None, 0]
+
+
+def test_embed_hash_is_empty_without_content() -> None:
+    assert embed.embed_hash("## 참고 자료\n", None) == ""
+    assert embed.embed_hash("본문", None) != embed.embed_hash("본문", "이웃")
+
+
+def test_editing_neighbour_reembeds_short_chunk(blog: Blog) -> None:
+    blog.write("선택/c", "글 C", SHORT_BODY)
+    store = MemoryStore()
+    _sync(blog, store)
+    embed.run(store, FakeProvider())
+
+    blog.write("선택/c", "글 C", SHORT_BODY.replace("긴 절 본문.", "긴 절 본문을 고쳤다."))
+    assert _sync(blog, store).chunks_updated == 3  # 긴 절, 그 뒤의 짧은 절, 그 앞의 도입부
+    assert store.chunks["선택/c#짧은-절"].model_id is None
+    assert store.chunks["선택/c#끝-절"].model_id is not None
+
+
+# 글 정보 청크 (3f)
+
+
+def test_meta_chunk_is_keyword_only(blog: Blog) -> None:
+    blog.write(
+        "선택/c",
+        "[방탈출] 글 C",
+        BODY_B,
+        search_text="[방탈출] 글 c 취미 방탈출 공포 선택/c",
+        description="글  C 의\n설명.",
+    )
+    store = MemoryStore()
+    _sync(blog, store)
+    meta = store.chunks["선택/c#~meta"].row
+    assert (meta.anchor, meta.heading_path, meta.embed_hash) == ("", "글 정보", "")
+    assert meta.body == "[방탈출] 글 c 취미 방탈출 공포 선택/c"
+    assert "공포" in meta.tokens
+    # 글 설명은 글(search.posts)에 둔다. 공백은 하나로 접는다
+    assert store.posts["선택/c"].description == "글 C 의 설명."
+
+    provider = FakeProvider()
+    summary = embed.run(store, provider)
+    assert summary.skipped == 1
+    assert all(not doc.title.endswith("글 정보") for doc in provider.inputs)
+    assert store.chunks["선택/c#~meta"].model_id is None
+
+
+def test_search_text_change_updates_only_meta_chunk(blog: Blog) -> None:
+    blog.write("선택/c", "글 C", BODY_B, search_text="글 c 공포")
+    store = MemoryStore()
+    _sync(blog, store)
+    embed.run(store, FakeProvider())
+
+    blog.write("선택/c", "글 C", BODY_B, search_text="글 c 공포 미스터리")
+    assert _sync(blog, store).chunks_updated == 1
+    assert store.empty() == 1
+
+
+def test_description_change_updates_post_only(blog: Blog, store: MemoryStore) -> None:
+    blog.write("선택/b", "글 B", BODY_B, description="새 설명")
+    summary = _sync(blog, store)
+    assert (summary.posts_updated, summary.chunks_updated) == (1, 0)
+    assert store.posts["선택/b"].description == "새 설명"
+    assert store.empty() == 0
+
+
+def test_post_without_search_text_has_no_meta_chunk(blog: Blog, store: MemoryStore) -> None:
+    assert not any(chunk_id.endswith("#~meta") for chunk_id in store.chunks)

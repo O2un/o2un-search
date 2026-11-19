@@ -50,6 +50,8 @@ class FakeStore:
         self._keyword = keyword
         self._vector = vector
         self.vector_calls = 0
+        self.post_descriptions: dict[str, str] = {}
+        self.description_calls: list[list[str]] = []
 
     def keyword(self, words, section):
         return [c for c in self._keyword if section is None or self.rows[c].href.startswith(f"/{section}/")]
@@ -60,6 +62,10 @@ class FakeStore:
 
     def chunks(self, chunk_ids):
         return {c: self.rows[c] for c in chunk_ids if c in self.rows}
+
+    def descriptions(self, post_ids):
+        self.description_calls.append(list(post_ids))
+        return {p: self.post_descriptions[p] for p in post_ids if p in self.post_descriptions}
 
 
 class MemoryCache:
@@ -115,6 +121,22 @@ def test_hybrid_groups_by_post_and_uses_cache() -> None:
     assert [r["keyword"] for r in first.results] == [True, False]
     search.run(store, cache, provider, "  검색어 ", None, 10)
     assert provider.calls == 1
+
+
+def test_meta_chunk_shows_description_only() -> None:
+    meta = ChunkRow("life/b#~meta", "life/b", "글 life/b", "/life/b/", "", "글 정보", "글 life/b 취미 공포 life/b")
+    store = FakeStore([*ROWS, meta], keyword=["life/b#~meta"], vector=[])
+    store.post_descriptions = {"life/b": "글 설명이다."}
+    result = search.run(store, MemoryCache(), None, "공포", None, 10)
+    assert result.results[0]["best"] == {"anchor": "", "heading_path": "", "snippet": "글 설명이다."}
+    assert result.results[0]["keyword"] is True
+    assert store.description_calls == [["life/b"]]
+
+
+def test_no_meta_hit_skips_descriptions() -> None:
+    store = FakeStore(ROWS, keyword=["dev/a#x"], vector=[])
+    search.run(store, MemoryCache(), None, "검색어", None, 10)
+    assert store.description_calls == []
 
 
 def test_section_filters_posts() -> None:

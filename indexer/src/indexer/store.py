@@ -24,10 +24,10 @@ class PgStore:
 
     def load(self) -> State:
         with self._conn.cursor() as cur:
-            cur.execute("SELECT post_id, href, title FROM search.posts")
-            posts = {row[0]: SitePost(href=row[1], title=row[2]) for row in cur.fetchall()}
-            cur.execute("SELECT chunk_id, content_hash FROM search.chunks")
-            chunks = {row[0]: row[1] for row in cur.fetchall()}
+            cur.execute("SELECT post_id, href, title, description FROM search.posts")
+            posts = {row[0]: SitePost(*row[1:]) for row in cur.fetchall()}
+            cur.execute("SELECT chunk_id, content_hash, context_chunk_id, embed_hash FROM search.chunks")
+            chunks = {row[0]: tuple(row[1:]) for row in cur.fetchall()}
         self._conn.commit()
         return State(posts=posts, chunks=chunks)
 
@@ -42,9 +42,10 @@ class PgStore:
     def upsert_posts(self, posts: dict[str, SitePost]) -> None:
         with self._conn.transaction(), self._conn.cursor() as cur:
             cur.executemany(
-                "INSERT INTO search.posts (post_id, title, href) VALUES (%s, %s, %s)"
-                " ON CONFLICT (post_id) DO UPDATE SET title = EXCLUDED.title, href = EXCLUDED.href",
-                [(post_id, post.title, post.href) for post_id, post in posts.items()],
+                "INSERT INTO search.posts (post_id, title, href, description) VALUES (%s, %s, %s, %s)"
+                " ON CONFLICT (post_id) DO UPDATE SET title = EXCLUDED.title, href = EXCLUDED.href,"
+                " description = EXCLUDED.description",
+                [(post_id, post.title, post.href, post.description) for post_id, post in posts.items()],
             )
 
     def clear_embeddings(self, post_ids: list[str]) -> None:
@@ -60,8 +61,9 @@ class PgStore:
             cur.executemany(
                 """
                 INSERT INTO search.chunks (
-                    chunk_id, post_id, anchor, heading_path, body, tokens, content_hash, indexed_at
-                ) VALUES (%s, %s, %s, %s, %s, to_tsvector('simple', %s), %s, now())
+                    chunk_id, post_id, anchor, heading_path, body, tokens, content_hash,
+                    context_chunk_id, embed_hash, indexed_at
+                ) VALUES (%s, %s, %s, %s, %s, to_tsvector('simple', %s), %s, %s, %s, now())
                 ON CONFLICT (chunk_id) DO UPDATE SET
                     post_id = EXCLUDED.post_id,
                     anchor = EXCLUDED.anchor,
@@ -69,6 +71,8 @@ class PgStore:
                     body = EXCLUDED.body,
                     tokens = EXCLUDED.tokens,
                     content_hash = EXCLUDED.content_hash,
+                    context_chunk_id = EXCLUDED.context_chunk_id,
+                    embed_hash = EXCLUDED.embed_hash,
                     indexed_at = EXCLUDED.indexed_at,
                     embedding = NULL,
                     embed_model_id = NULL
@@ -82,6 +86,8 @@ class PgStore:
                         row.body,
                         " ".join(row.tokens),
                         row.content_hash,
+                        row.context_chunk_id,
+                        row.embed_hash,
                     )
                     for row in rows
                 ],
@@ -103,8 +109,9 @@ class PgStore:
     def pending(self, model_id: int) -> list[Pending]:
         with self._conn.cursor() as cur:
             cur.execute(
-                "SELECT c.chunk_id, p.title, c.heading_path, c.body"
+                "SELECT c.chunk_id, p.title, c.heading_path, c.body, n.body, c.embed_hash <> ''"
                 " FROM search.chunks c JOIN search.posts p USING (post_id)"
+                " LEFT JOIN search.chunks n ON n.chunk_id = c.context_chunk_id"
                 " WHERE c.embed_model_id IS DISTINCT FROM %s"
                 " ORDER BY c.chunk_id",
                 (model_id,),

@@ -11,6 +11,7 @@ from typing import Protocol
 
 from indexer import core
 from indexer.query_cache import QueryCache, embed_query
+from indexer.sync import META_CHUNK_SUFFIX
 
 from ranking import fuse, group_by_post, snippet
 from store import ChunkRow
@@ -26,6 +27,8 @@ class Candidates(Protocol):
     def vector(self, vector: list[float], model_id: int, section: str | None) -> list[str]: ...
 
     def chunks(self, chunk_ids: list[str]) -> dict[str, ChunkRow]: ...
+
+    def descriptions(self, post_ids: list[str]) -> dict[str, str]: ...
 
 
 class DeadlineProvider:
@@ -104,19 +107,25 @@ def run(store: Candidates, cache: QueryCache, provider, query: str, section: str
     # 벡터 후보는 검색어와 상관없이 늘 상위 청크를 채우므로, 순위만으로는 검색어가 실제로
     # 글에 들어 있는지 알 수 없다. 호출하는 쪽이 보일 글을 거를 수 있게 키워드 적중을 따로 싣는다.
     keyword_posts = {rows[cid].post_id for cid in keyword if cid in rows}
+    meta_posts = [hit.post_id for hit in hits if hit.chunk_id.endswith(META_CHUNK_SUFFIX)]
+    descriptions = store.descriptions(meta_posts) if meta_posts else {}
     results = [
         {
             "post_id": hit.post_id,
             "title": rows[hit.chunk_id].title,
             "href": rows[hit.chunk_id].href,
-            "best": {
-                "anchor": rows[hit.chunk_id].anchor,
-                "heading_path": rows[hit.chunk_id].heading_path,
-                "snippet": snippet(rows[hit.chunk_id].body, terms),
-            },
+            "best": _best(rows[hit.chunk_id], terms, descriptions),
             "keyword": hit.post_id in keyword_posts,
             "score": round(hit.score, 6),
         }
         for hit in hits
     ]
     return Result("hybrid" if embedded else "keyword", results, terms)
+
+
+def _best(row: ChunkRow, terms: list[str], descriptions: dict[str, str]) -> dict:
+    """대표 절. 글 정보 청크(3f)는 프론트매터 단어를 모은 줄이라 그대로 보이지 않고, 글 설명을
+    미리보기로 쓴다. 절 이름은 비워 도입부처럼 글 맨 위로 보낸다."""
+    if row.chunk_id.endswith(META_CHUNK_SUFFIX):
+        return {"anchor": "", "heading_path": "", "snippet": snippet(descriptions.get(row.post_id, ""))}
+    return {"anchor": row.anchor, "heading_path": row.heading_path, "snippet": snippet(row.body, terms)}

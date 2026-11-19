@@ -20,6 +20,11 @@ log = logging.getLogger("search")
 
 _pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="embed")
 
+# 단어가 이만큼 이하인 검색어는 키워드에 걸린 글이 있으면 벡터로만 들어온 글을 뺀다.
+# "공포" 같은 한 단어는 임베딩 거리로 관련 글과 무관한 글이 갈리지 않는다(관련 글 0.31~0.38,
+# 무관한 글 0.375~). 키워드 적중이 없으면 벡터 결과가 유일한 단서라 그대로 둔다.
+SHORT_QUERY_WORDS = 1
+
 
 class Candidates(Protocol):
     def keyword(self, words: list[list[str]], section: str | None) -> list[str]: ...
@@ -103,10 +108,12 @@ def run(store: Candidates, cache: QueryCache, provider, query: str, section: str
     rows = store.chunks(list(scores))
     # 후보를 뽑은 뒤 색인이 지운 청크는 빼고 묶는다.
     scores = {cid: score for cid, score in scores.items() if cid in rows}
-    hits = group_by_post(scores, {cid: row.post_id for cid, row in rows.items()}, limit)
     # 벡터 후보는 검색어와 상관없이 늘 상위 청크를 채우므로, 순위만으로는 검색어가 실제로
     # 글에 들어 있는지 알 수 없다. 호출하는 쪽이 보일 글을 거를 수 있게 키워드 적중을 따로 싣는다.
     keyword_posts = {rows[cid].post_id for cid in keyword if cid in rows}
+    if len(words) <= SHORT_QUERY_WORDS and keyword_posts:
+        scores = {cid: score for cid, score in scores.items() if rows[cid].post_id in keyword_posts}
+    hits = group_by_post(scores, {cid: row.post_id for cid, row in rows.items()}, limit)
     meta_posts = [hit.post_id for hit in hits if hit.chunk_id.endswith(META_CHUNK_SUFFIX)]
     descriptions = store.descriptions(meta_posts) if meta_posts else {}
     results = [

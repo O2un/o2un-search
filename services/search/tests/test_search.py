@@ -112,14 +112,14 @@ ROWS = [
 def test_hybrid_groups_by_post_and_uses_cache() -> None:
     store = FakeStore(ROWS, keyword=["dev/a#x"], vector=["life/b#z", "dev/a#y"])
     cache, provider = MemoryCache(), Provider()
-    first = search.run(store, cache, provider, "검색어", None, 10)
+    first = search.run(store, cache, provider, "검색어 예시", None, 10)
     assert first.mode == "hybrid"
     # dev/a 는 키워드 1위(x)와 벡터 2위(y) 중 높은 쪽, life/b 는 벡터 1위. 동점은 청크 id 순.
     assert [r["post_id"] for r in first.results] == ["dev/a", "life/b"]
     assert first.results[0]["best"]["anchor"] == "x"
     # dev/a 는 키워드 후보에 걸렸고, life/b 는 벡터 후보로만 들어왔다.
     assert [r["keyword"] for r in first.results] == [True, False]
-    search.run(store, cache, provider, "  검색어 ", None, 10)
+    search.run(store, cache, provider, "  검색어  예시 ", None, 10)
     assert provider.calls == 1
 
 
@@ -137,6 +137,27 @@ def test_no_meta_hit_skips_descriptions() -> None:
     store = FakeStore(ROWS, keyword=["dev/a#x"], vector=[])
     search.run(store, MemoryCache(), None, "검색어", None, 10)
     assert store.description_calls == []
+
+
+def test_one_word_query_drops_vector_only_posts() -> None:
+    store = FakeStore(ROWS, keyword=["dev/a#x"], vector=["life/b#z", "dev/a#y"])
+    result = search.run(store, MemoryCache(), Provider(), "공포", None, 10)
+    assert result.mode == "hybrid"
+    assert [r["post_id"] for r in result.results] == ["dev/a"]
+    # 키워드에 걸린 글의 다른 청크는 벡터 순위로 대표 절이 될 수 있다.
+    assert result.results[0]["best"]["anchor"] == "x"
+
+
+def test_one_word_query_keeps_vector_without_keyword_hit() -> None:
+    store = FakeStore(ROWS, keyword=[], vector=["life/b#z"])
+    result = search.run(store, MemoryCache(), Provider(), "호러", None, 10)
+    assert [(r["post_id"], r["keyword"]) for r in result.results] == [("life/b", False)]
+
+
+def test_two_word_query_keeps_vector_only_posts() -> None:
+    store = FakeStore(ROWS, keyword=["dev/a#x"], vector=["life/b#z"])
+    result = search.run(store, MemoryCache(), Provider(), "공포 테마", None, 10)
+    assert [r["post_id"] for r in result.results] == ["dev/a", "life/b"]
 
 
 def test_section_filters_posts() -> None:

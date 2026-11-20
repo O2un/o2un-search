@@ -1,7 +1,7 @@
 """검색 서비스의 DB 조회. 읽기 계정(SEARCH_READER_URL)으로 `search` 스키마 함수만 부른다.
 
-함수 정의는 indexer/migrations/006_search_functions.sql, 008_keyword_cover.sql, 009_embed_context.sql,
-011_keyword_alternatives.sql 에 있다. 서비스는 테이블 구조를 모른다.
+함수 정의는 indexer/migrations/006_search_functions.sql, 009_embed_context.sql, 011_keyword_alternatives.sql 에
+있다. 서비스는 테이블 구조를 모른다.
 """
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ from dataclasses import dataclass
 
 from indexer.query_cache import vector_literal
 
-# 출발값. 바꾸면 단위 5 기준선도 다시 잡는다.
+# 키워드·벡터 후보를 각각 이만큼 뽑는다. 바꾸면 확인 검색어의 결과를 하나씩 다시 읽고 판정한다.
 CANDIDATES = 50
 # 청크 하나가 맞혀야 하는 단어 무게(드문 단어일수록 무겁다)의 비율. 2026-11-18 문장 검색어 6개로 정했다.
 KEYWORD_MIN_COVER = 0.5
@@ -33,7 +33,7 @@ class Store:
 
     def keyword(self, words: list[list[list[str]]], section: str | None) -> list[str]:
         """단어마다 대안 목록, 대안마다 토큰 목록. 대안 하나의 토큰이 모두 맞으면 단어가 맞는다.
-        핵심 단어 무게가 KEYWORD_MIN_COVER 이상 맞은 청크만 온다(마이그레이션 008, 011)."""
+        핵심 단어 무게가 KEYWORD_MIN_COVER 이상 맞은 청크만 온다(마이그레이션 011)."""
         flat = [
             (token, w, a)
             for w, alternatives in enumerate(words)

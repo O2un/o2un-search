@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-# 출발값. 바꾸면 단위 5 기준선도 다시 잡는다.
+# RRF 의 통상값. 바꾸면 확인 검색어의 결과를 하나씩 다시 읽고 판정한다.
 RRF_K = 60
 
 SNIPPET_CHARS = 160

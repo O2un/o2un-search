@@ -7,7 +7,7 @@ import re
 import unicodedata
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Protocol
+from typing import NamedTuple, Protocol
 
 from indexer import core
 from indexer._dev_terms import TERMS
@@ -16,6 +16,7 @@ from indexer.sync import META_CHUNK_SUFFIX
 from indexer.word_forms import query_form
 
 import korean
+import synonyms
 from ranking import fuse, group_by_post, snippet
 from store import ChunkRow
 
@@ -30,7 +31,7 @@ SHORT_QUERY_WORDS = 1
 
 
 class Candidates(Protocol):
-    def keyword(self, words: list[list[str]], section: str | None) -> list[str]: ...
+    def keyword(self, words: list[list[list[str]]], section: str | None) -> list[str]: ...
 
     def vector(self, vector: list[float], model_id: int, section: str | None) -> list[str]: ...
 
@@ -60,35 +61,67 @@ def _term_pattern(term: str) -> str:
     return re.escape(term) + tail
 
 
-# 토크나이저가 토큰을 만드는 구간과 같다: 개발 용어 사전의 용어(긴 것부터, ASCII 대소문자 무시),
-# 한글 음절, ASCII 영문·숫자.
+# 동의어 묶음의 한글·영문이 섞인 표기(`C샵`), 개발 용어 사전의 용어(둘 다 긴 것부터, ASCII 대소문자
+# 무시), 한글 음절, ASCII 영문·숫자. 뒤의 셋은 토크나이저가 토큰을 만드는 구간과 같다.
+_MIXED = "|".join(_term_pattern(form) for form in synonyms.MIXED)
 _TERMS = "|".join(_term_pattern(t) for t in sorted(TERMS, key=lambda t: (-len(t), t)))
-_RUN = re.compile(rf"(?<![A-Za-z0-9])(?ai:{_TERMS})|[가-힣]+|[A-Za-z0-9]+")
+_RUN = re.compile(
+    rf"(?<![A-Za-z0-9가-힣])(?ai:{_MIXED})|(?<![A-Za-z0-9])(?ai:{_TERMS})|[가-힣]+|[A-Za-z0-9]+"
+)
 _HANGUL_RUN = re.compile(r"[가-힣]+")
 
 
-def query_words(query: str) -> list[tuple[str, list[str]]]:
-    """검색어를 단어로 나눈다. (어간, 토큰) 목록이고 어간이 같은 단어는 한 번만 둔다.
+class Word(NamedTuple):
+    text: str  # 검색어에 쓴 꼴(한글은 조사·어미를 뗀 어간). 결과 강조에 쓴다
+    alternatives: list[list[str]]  # 대안마다 토큰. 하나라도 토큰이 모두 맞으면 단어가 맞는다
+    forms: tuple[str, ...] = ()  # 동의어 묶음의 다른 표기. 결과 강조에 쓴다
+
+
+def query_words(query: str) -> list[Word]:
+    """검색어를 단어로 나눈다. 어간이 같거나 같은 동의어 묶음에 드는 단어는 한 번만 둔다.
 
     한글 어절은 형태소 분석으로 끝의 조사·어미만 뗀다(`korean.stem`). 조사·어미("렌더링이",
-    "까맣게", "만들기")가 단어마다 달라 그대로 두면 글에 쓰인 꼴과 맞지 않는다. 어간은 결과 강조에도
-    쓴다. 영어 단어는 토큰을 기본 꼴(어간)로 바꿔 찾는다(`word_forms.query_form`). 개발 용어(`C++`)는
-    단어 하나다. 토큰이 없는 단어(한 글자 영문·숫자, 한 음절 한글, 조사뿐인 어절)는 뺀다.
+    "까맣게", "만들기")가 단어마다 달라 그대로 두면 글에 쓰인 꼴과 맞지 않는다. 영어 단어는 토큰을
+    기본 꼴(어간)로 바꿔 찾는다(`word_forms.query_form`). 개발 용어(`C++`)는 단어 하나다.
+    단어가 동의어 묶음에 들면 묶음의 다른 표기를 대안으로 붙인다(`synonyms`).
+    토큰이 없는 단어(한 글자 영문·숫자, 한 음절 한글, 조사뿐인 어절)는 뺀다.
     """
-    words: list[tuple[str, list[str]]] = []
+    words: list[Word] = []
     seen: set[str] = set()
-    for run in _RUN.findall(unicodedata.normalize("NFC", query)):
+    previous_end = -1
+    for match in _RUN.finditer(unicodedata.normalize("NFC", query)):
+        run = match.group()
+        glued = match.start() == previous_end
+        previous_end = match.end()
         if _HANGUL_RUN.fullmatch(run):
+            # 영문·용어 바로 뒤에 붙은 한글("C#으로", "Unity에서")은 따로 떼어 분석하면 "으로"를
+            # 낱말로 읽는다. 조사뿐이면 버린다.
+            if glued and run in korean.PARTICLES:
+                continue
             stem = korean.stem(run)
             if stem is None:
                 continue
             tokens = core.tokenize(stem)
+        elif run.lower() in synonyms.MIXED:
+            # 섞인 표기의 제 토큰("챗GPT" → gpt)은 너무 넓다. 묶음의 대안으로만 찾는다.
+            stem = run
+            tokens = []
         else:
             stem = run
             tokens = [query_form(token) for token in core.tokenize(stem)]
-        if tokens and stem.lower() not in seen:
-            seen.add(stem.lower())
-            words.append((stem, tokens))
+        alternatives = [tokens] if tokens else []
+        found = synonyms.bundle(stem)
+        forms: tuple[str, ...] = ()
+        if found is not None:
+            forms = tuple(form for form in found if form != stem.lower())
+            for form in found:
+                alternative = synonyms.form_tokens(form)
+                if alternative and alternative not in alternatives:
+                    alternatives.append(alternative)
+        key = found[0] if found is not None else stem.lower()
+        if alternatives and key not in seen:
+            seen.add(key)
+            words.append(Word(stem, alternatives, forms))
     return words
 
 
@@ -96,7 +129,7 @@ def query_words(query: str) -> list[tuple[str, list[str]]]:
 class Result:
     mode: str  # "hybrid" | "keyword"
     results: list[dict]
-    terms: list[str]  # 결과에서 강조할 검색어 어간
+    terms: list[str]  # 결과에서 강조할 검색어 어간과 동의어 표기
 
 
 def _query_vector(cache: QueryCache, provider, query: str) -> tuple[list[float], int] | None:
@@ -118,8 +151,8 @@ def _query_vector(cache: QueryCache, provider, query: str) -> tuple[list[float],
 
 def run(store: Candidates, cache: QueryCache, provider, query: str, section: str | None, limit: int) -> Result:
     words = query_words(query)
-    terms = [stem for stem, _ in words]
-    keyword = store.keyword([tokens for _, tokens in words], section) if words else []
+    terms = [word.text for word in words] + [form for word in words for form in word.forms]
+    keyword = store.keyword([word.alternatives for word in words], section) if words else []
     embedded = _query_vector(cache, provider, query)
     vector = store.vector(embedded[0], embedded[1], section) if embedded else []
 

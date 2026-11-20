@@ -17,6 +17,14 @@ from functools import cache
 
 from kiwipiepy import Kiwi
 
+# 영문·개발 용어 바로 뒤에 붙는 조사("C#으로", "Unity에서"). 이렇게 떨어져 나온 한글은 앞 낱말이
+# 없어 분석기가 "으로"를 "으"(명사) + "로"로 읽는다. 목록에 있으면 단어로 치지 않는다.
+PARTICLES = frozenset(
+    "은 는 이 가 을 를 의 에 에서 에게 한테 께 로 으로 로서 으로서 로써 으로써 로부터 으로부터 와 과 랑 이랑 "
+    "하고 도 만 까지 부터 보다 처럼 같이 마다 이나 나 이든 든 이라도 라도 이다 다 이고 고 이며 며 이에요 예요 "
+    "입니다 인 이란 란 이라는 라는".split()
+)
+
 _FUNCTIONAL_PREFIXES = ("J", "E", "XS")
 _FUNCTIONAL_TAGS = frozenset({"VX", "VCP"})
 

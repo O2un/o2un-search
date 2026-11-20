@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 # 출발값. 바꾸면 단위 5 기준선도 다시 잡는다.
@@ -39,6 +40,23 @@ def group_by_post(scores: dict[str, float], post_of: dict[str, str], limit: int)
 # 검색어가 본문 중간에 있으면 그 앞을 이만큼만 남기고 자른다.
 SNIPPET_LEAD = 30
 
+_ASCII_WORD = re.compile(r"[a-z0-9]")
+
+
+def _find(lowered: str, term: str) -> int:
+    """검색어가 처음 나오는 곳. 블로그의 강조와 같이, 영문·숫자로 시작하는 검색어는 앞 글자가,
+    영문·숫자로 끝나는 검색어는 뒤 글자가 영문·숫자가 아닐 때만 센다("go"가 "google"에 걸리지 않게).
+    한글 검색어는 어디든 센다."""
+    if _ASCII_WORD.match(term[0]) is None and _ASCII_WORD.match(term[-1]) is None:
+        return lowered.find(term)
+    pattern = re.escape(term)
+    if _ASCII_WORD.match(term[0]):
+        pattern = r"(?<![a-z0-9])" + pattern
+    if _ASCII_WORD.match(term[-1]):
+        pattern += r"(?![a-z0-9])"
+    found = re.search(pattern, lowered)
+    return -1 if found is None else found.start()
+
 
 def snippet(body: str, terms: list[str] = (), limit: int = SNIPPET_CHARS) -> str:
     """청크 본문에서 검색어가 처음 나오는 곳 근처. 없으면 앞부분.
@@ -50,7 +68,7 @@ def snippet(body: str, terms: list[str] = (), limit: int = SNIPPET_CHARS) -> str
         lines.pop(0)
     text = " ".join(" ".join(lines).split())
     lowered = text.lower()
-    found = [i for i in (lowered.find(term.lower()) for term in terms if term) if i >= 0]
+    found = [i for i in (_find(lowered, term.lower()) for term in terms if term) if i >= 0]
     first = min(found, default=0)
     start = 0
     # 앞부분에서 검색어가 보이면 그대로 둔다.

@@ -36,19 +36,24 @@ def test_snippet_moves_to_first_term() -> None:
     assert snippet("URP 전환", ["urp"]).startswith("URP")
 
 
+def own(words: list[search.Word]) -> list[tuple[str, list[str]]]:
+    """(검색어에 쓴 꼴, 그 꼴의 토큰). 동의어 대안은 빼고 본다."""
+    return [(word.text, word.alternatives[0]) for word in words]
+
+
 def test_query_words_strips_endings_and_dedupes() -> None:
     words = search.query_words("유니티 렌더링이 까맣게 나오는 이유 C# 유니티")
-    assert [stem for stem, _ in words] == ["유니티", "렌더링", "까맣", "나오", "이유", "C#"]
+    assert [word.text for word in words] == ["유니티", "렌더링", "까맣", "나오", "이유", "C#"]
     # "유니티"는 조사가 없어 그대로다. "유니"로 줄이면 "유니스"에 걸린다.
-    assert words[0][1] == ["유니", "니티"]
-    assert words[1][1] == ["렌더", "더링"]
-    assert words[5][1] == ["c#"]
+    assert words[0].alternatives[0] == ["유니", "니티"]
+    assert words[1].alternatives == [["렌더", "더링"]]
+    assert words[5].alternatives[0] == ["c#"]
     # 한 음절, 한 글자 영문·숫자, 조사뿐인 어절은 단어가 되지 않는다.
     assert search.query_words("뭐 ? C 6 에서") == []
 
 
 def test_query_words_uses_english_base_forms() -> None:
-    assert search.query_words("Shaders rendering Unity Unity6") == [
+    assert own(search.query_words("Shaders rendering Unity Unity6")) == [
         ("Shaders", ["shader"]),
         ("rendering", ["render"]),
         ("Unity", ["uniti"]),
@@ -58,7 +63,7 @@ def test_query_words_uses_english_base_forms() -> None:
 
 def test_query_words_keeps_dev_terms_whole() -> None:
     words = search.query_words("C++26 ASP.NET System.NET node.jsx")
-    assert words == [
+    assert own(words) == [
         ("C++", ["c++"]),
         ("26", ["26"]),
         ("ASP.NET", ["asp.net"]),
@@ -68,7 +73,54 @@ def test_query_words_keeps_dev_terms_whole() -> None:
         ("jsx", ["jsx"]),
     ]
     # 같은 용어를 대소문자만 달리 쓰면 한 번만 둔다.
-    assert search.query_words("c# C#") == [("c#", ["c#"])]
+    assert own(search.query_words("c# C#")) == [("c#", ["c#"])]
+
+
+def test_query_words_adds_synonym_alternatives() -> None:
+    [unity] = search.query_words("유니티로")
+    assert unity.text == "유니티"
+    assert unity.alternatives == [["유니", "니티"], ["uniti"]]
+    assert unity.forms == ("unity",)
+    # 영문 쪽에서 찾아도 같은 묶음이다. 영문은 기본 꼴로도 묶음을 찾는다.
+    [shaders] = search.query_words("Shaders")
+    assert shaders.alternatives == [["shader"], ["셰이", "이더"], ["쉐이", "이더"]]
+    # 같은 묶음의 두 표기는 단어 하나다.
+    assert len(search.query_words("유니티 Unity")) == 1
+
+
+def test_query_words_recognises_mixed_forms() -> None:
+    # "C샵"은 한 글자 C와 한 음절 샵으로 갈리면 둘 다 버려진다. 통째로 알아보고 c# 묶음으로 넓힌다.
+    [csharp] = search.query_words("C샵으로")
+    assert csharp.text == "C샵"
+    assert csharp.alternatives[0] == ["c#"]
+    assert ["씨샵"] in csharp.alternatives
+    # 섞인 표기의 제 토큰은 쓰지 않는다. "챗GPT"를 gpt 로 찾으면 GPT 글 모두에 걸린다.
+    [chatgpt] = search.query_words("챗GPT로")
+    assert chatgpt.alternatives == [["chatgpt"], ["챗지", "지피", "피티"]]
+    # 앞이 한글이면 섞인 표기가 아니다.
+    assert search.query_words("오픈ai") != search.query_words("가오픈ai")
+
+
+def test_query_words_drops_particles_glued_to_ascii() -> None:
+    assert own(search.query_words("C#으로 Unity에서 유니티엔진")) == [
+        ("C#", ["c#"]),
+        ("Unity", ["uniti"]),
+        ("유니티엔진", ["유니", "니티", "티엔", "엔진"]),
+    ]
+    # 조사가 아니면 붙어 있어도 단어다.
+    assert [word.text for word in search.query_words("Unity엔진")] == ["Unity", "엔진"]
+
+
+def test_run_sends_alternatives_and_highlights_forms() -> None:
+    store = FakeStore(ROWS, keyword=["dev/a#x"], vector=[])
+    result = search.run(store, MemoryCache(), None, "셰이더 공포", None, 10)
+    assert store.keyword_words == [[["셰이", "이더"], ["shader"], ["쉐이", "이더"]], [["공포"]]]
+    assert result.terms == ["셰이더", "공포", "shader", "쉐이더"]
+
+
+def test_snippet_skips_ascii_term_inside_word() -> None:
+    body = "google 이야기 " + "앞 " * 150 + "go 언어"
+    assert "go 언어" in snippet(body, ["go"])
 
 
 class FakeStore:
@@ -81,6 +133,7 @@ class FakeStore:
         self.description_calls: list[list[str]] = []
 
     def keyword(self, words, section):
+        self.keyword_words = words
         return [c for c in self._keyword if section is None or self.rows[c].href.startswith(f"/{section}/")]
 
     def vector(self, vector, model_id, section):

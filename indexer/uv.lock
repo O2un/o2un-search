@@ -457,7 +457,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "google-genai", specifier = ">=1.0" },
-    { name = "o2un-search-core", marker = "sys_platform == 'linux'", url = "https://github.com/O2un/o2un-search/releases/download/core-v0.2.0/o2un_search_core-0.2.0-cp312-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" },
+    { name = "o2un-search-core", marker = "sys_platform == 'linux'", url = "https://github.com/O2un/o2un-search/releases/download/core-v0.3.0/o2un_search_core-0.3.0-cp312-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
 ]
 
@@ -466,10 +466,10 @@ dev = [{ name = "pytest", specifier = ">=8" }]
 
 [[package]]
 name = "o2un-search-core"
-version = "0.2.0"
-source = { url = "https://github.com/O2un/o2un-search/releases/download/core-v0.2.0/o2un_search_core-0.2.0-cp312-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" }
+version = "0.3.0"
+source = { url = "https://github.com/O2un/o2un-search/releases/download/core-v0.3.0/o2un_search_core-0.3.0-cp312-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" }
 wheels = [
-    { url = "https://github.com/O2un/o2un-search/releases/download/core-v0.2.0/o2un_search_core-0.2.0-cp312-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:93584b4d7a69ae3faea4344805c053a594cf1ffad94d95552e938db2c9f20b72" },
+    { url = "https://github.com/O2un/o2un-search/releases/download/core-v0.3.0/o2un_search_core-0.3.0-cp312-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:7aa8e03b9fe06d42983d4ec15266e8d46185b52f0a4300a02713401d2a47da6b" },
 ]
 
 [[package]]

@@ -8,7 +8,7 @@ dependencies = [
     "psycopg[binary]>=3.2",
     # Rust 구현. Release wheel 은 manylinux x86_64 만 있어 Linux(CI)에서만 깐다. 로컬 Windows 는
     # crates/search-core 에서 maturin develop 으로 깔고, `uv sync` 뒤에는 다시 깐다(sync 가 지운다).
-    "o2un-search-core @ https://github.com/O2un/o2un-search/releases/download/core-v0.2.0/o2un_search_core-0.2.0-cp312-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl ; sys_platform == 'linux'",
+    "o2un-search-core @ https://github.com/O2un/o2un-search/releases/download/core-v0.3.0/o2un_search_core-0.3.0-cp312-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl ; sys_platform == 'linux'",
 ]
 
 [project.scripts]

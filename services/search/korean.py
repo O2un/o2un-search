@@ -23,7 +23,9 @@ _FUNCTIONAL_TAGS = frozenset({"VX", "VCP"})
 
 @cache
 def _kiwi() -> Kiwi:
-    return Kiwi()
+    # 다어절 사전(multi.dict, 12MB)은 여러 어절에 걸친 고유명사용이다. 어절 하나씩 끝만 떼는
+    # 여기서는 쓰지 않고, 빼면 불러오는 시간이 절반쯤 준다(로컬 1.34초 → 0.66초, 시험 낱말 결과 같음).
+    return Kiwi(load_multi_dict=False)
 
 
 def load() -> None:

@@ -13,7 +13,9 @@ from indexer import core
 from indexer._dev_terms import TERMS
 from indexer.query_cache import QueryCache, embed_query
 from indexer.sync import META_CHUNK_SUFFIX
+from indexer.word_forms import query_form
 
+import korean
 from ranking import fuse, group_by_post, snippet
 from store import ChunkRow
 
@@ -62,21 +64,28 @@ def _term_pattern(term: str) -> str:
 # 한글 음절, ASCII 영문·숫자.
 _TERMS = "|".join(_term_pattern(t) for t in sorted(TERMS, key=lambda t: (-len(t), t)))
 _RUN = re.compile(rf"(?<![A-Za-z0-9])(?ai:{_TERMS})|[가-힣]+|[A-Za-z0-9]+")
-_HANGUL_RUN = re.compile(r"[가-힣]{3,}")
+_HANGUL_RUN = re.compile(r"[가-힣]+")
 
 
 def query_words(query: str) -> list[tuple[str, list[str]]]:
     """검색어를 단어로 나눈다. (어간, 토큰) 목록이고 어간이 같은 단어는 한 번만 둔다.
 
-    한글 세 음절 이상은 끝 음절을 뗀다. 조사·어미("렌더링이", "까맣게", "만들기")가 단어마다
-    달라 그대로 두면 글에 쓰인 꼴과 맞지 않는다. 어간은 결과 강조에도 쓴다.
-    개발 용어(`C++`)는 단어 하나다. 토큰이 없는 단어(한 글자 영문·숫자, 한 음절 한글)는 뺀다.
+    한글 어절은 형태소 분석으로 끝의 조사·어미만 뗀다(`korean.stem`). 조사·어미("렌더링이",
+    "까맣게", "만들기")가 단어마다 달라 그대로 두면 글에 쓰인 꼴과 맞지 않는다. 어간은 결과 강조에도
+    쓴다. 영어 단어는 토큰을 기본 꼴(어간)로 바꿔 찾는다(`word_forms.query_form`). 개발 용어(`C++`)는
+    단어 하나다. 토큰이 없는 단어(한 글자 영문·숫자, 한 음절 한글, 조사뿐인 어절)는 뺀다.
     """
     words: list[tuple[str, list[str]]] = []
     seen: set[str] = set()
     for run in _RUN.findall(unicodedata.normalize("NFC", query)):
-        stem = run[:-1] if _HANGUL_RUN.fullmatch(run) else run
-        tokens = core.tokenize(stem)
+        if _HANGUL_RUN.fullmatch(run):
+            stem = korean.stem(run)
+            if stem is None:
+                continue
+            tokens = core.tokenize(stem)
+        else:
+            stem = run
+            tokens = [query_form(token) for token in core.tokenize(stem)]
         if tokens and stem.lower() not in seen:
             seen.add(stem.lower())
             words.append((stem, tokens))

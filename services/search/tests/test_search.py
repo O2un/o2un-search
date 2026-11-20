@@ -38,11 +38,22 @@ def test_snippet_moves_to_first_term() -> None:
 
 def test_query_words_strips_endings_and_dedupes() -> None:
     words = search.query_words("유니티 렌더링이 까맣게 나오는 이유 C# 유니티")
-    assert [stem for stem, _ in words] == ["유니", "렌더링", "까맣", "나오", "이유", "C#"]
+    assert [stem for stem, _ in words] == ["유니티", "렌더링", "까맣", "나오", "이유", "C#"]
+    # "유니티"는 조사가 없어 그대로다. "유니"로 줄이면 "유니스"에 걸린다.
+    assert words[0][1] == ["유니", "니티"]
     assert words[1][1] == ["렌더", "더링"]
     assert words[5][1] == ["c#"]
-    # 한 음절, 한 글자 영문·숫자는 토큰이 없어 단어가 되지 않는다.
-    assert search.query_words("뭐 ? C 6") == []
+    # 한 음절, 한 글자 영문·숫자, 조사뿐인 어절은 단어가 되지 않는다.
+    assert search.query_words("뭐 ? C 6 에서") == []
+
+
+def test_query_words_uses_english_base_forms() -> None:
+    assert search.query_words("Shaders rendering Unity Unity6") == [
+        ("Shaders", ["shader"]),
+        ("rendering", ["render"]),
+        ("Unity", ["uniti"]),
+        ("Unity6", ["unity6"]),
+    ]
 
 
 def test_query_words_keeps_dev_terms_whole() -> None:

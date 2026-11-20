@@ -10,6 +10,7 @@
   이웃 절만 바뀌어도 짧은 절이 고칠 대상이 된다.
 - 위 값이 모두 같고 토큰(어휘 집합)만 다르면 토큰만 고치고 임베딩은 둔다. 토크나이저 규칙이
   바뀐 첫 실행이 이 경우다.
+- 청크 토큰은 토크나이저 결과에 영어 기본 꼴(`word_forms.index_forms`)을 덧붙인 것이다.
 - 글마다 "글 정보" 청크(`{post_id}#~meta`)를 하나 더 둔다. 본문은 블로그가 만든 `searchText` 다.
   키워드로만 찾고 임베딩하지 않는다(`embed_hash` 가 빈다). 프론트매터 단어를 모은 줄은 뜻이 흐려
   여러 검색어에 두루 가깝게 잡히기 때문이다. 청커가 만드는 청크가 아니므로 Rust 구현과
@@ -29,6 +30,7 @@ from .core import chunk, tokenize
 from .corpus import is_published, iter_posts
 from .embed import contexts, embed_hash
 from .site import SitePost, load_site_index
+from .word_forms import index_forms
 
 # 청커의 청크 id 는 `{post_id}#{anchor}` 꼴이고 앵커는 `~` 를 만들지 않는다.
 META_CHUNK_SUFFIX = "#~meta"
@@ -120,7 +122,7 @@ def _post_rows(post_id: str, chunks: list[Chunk], search_text: str) -> list[Row]
                 anchor=item.anchor,
                 heading_path=item.heading_path,
                 body=item.body,
-                tokens=tuple(tokenize(item.body)),
+                tokens=tuple(index_forms(tokenize(item.body))),
                 content_hash=item.content_hash,
                 context_chunk_id=None if context is None else context.chunk_id,
                 embed_hash=embed_hash(item.body, None if context is None else context.body),
@@ -134,7 +136,7 @@ def _post_rows(post_id: str, chunks: list[Chunk], search_text: str) -> list[Row]
                 anchor="",
                 heading_path=META_HEADING,
                 body=search_text,
-                tokens=tuple(tokenize(search_text)),
+                tokens=tuple(index_forms(tokenize(search_text))),
                 content_hash=content_hash(META_HEADING, search_text),
                 context_chunk_id=None,
                 embed_hash="",  # 키워드로만 찾는다

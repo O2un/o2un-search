@@ -37,6 +37,7 @@ from indexer import core  # noqa: E402
 from indexer.embedding import make_provider  # noqa: E402
 from indexer.query_cache import PgQueryCache  # noqa: E402
 
+import korean  # noqa: E402
 import search  # noqa: E402
 from store import Store  # noqa: E402
 
@@ -63,6 +64,7 @@ def _provider():
 
 
 core.selected()  # 토크나이저 구현을 import 때 정해 첫 요청에 얹지 않는다
+korean.load()  # 형태소 분석 모델(1초 남짓)도 import 때 불러, 블로그의 /warm 이 기다리게 한다
 _PROVIDER = _provider()
 _import_ms = round((time.perf_counter() - _started) * 1000)
 _first_request = True

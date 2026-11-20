@@ -16,7 +16,11 @@ tokenize(text) -> list[str]                        # src/indexer/tokenizer.py
 uv run pytest                                       # 샘플 fixture 대조
 uv run indexer check-anchors --blog <블로그 레포>    # 실제 글 경계 대조
 uv run python scripts/update_fixtures.py            # 규칙을 바꾼 뒤 fixture 갱신
+python ../crates/search-core/scripts/gen_dev_terms.py   # 개발 용어 사전을 고친 뒤 Rust 표 갱신
 ```
+
+개발 용어 사전(`src/indexer/_dev_terms.py`)의 용어(`c++`, `c#`, `.net` 등)는 토큰 하나가 된다.
+Rust 구현은 이 목록으로 만든 `crates/search-core/src/dev_terms.rs` 를 쓴다.
 
 `check-anchors` 는 블로그 레포에서 먼저 `npm run build` 를 돌려 둔 `dist/client` 를 읽는다.
 공개 글마다 청크 앵커 목록이 글 HTML 의 절 제목 id 목록과 같아야 통과한다.
@@ -47,6 +51,8 @@ uv run indexer embed                        # 임베딩이 빈 청크와 다른 
 DB 와 비교한다. `embed` 가 호출 한도로 멈추면 처리한 데까지 저장되고 종료 코드 1로 끝난다.
 남은 청크는 빈 채로 남아 다음 실행이 이어 간다.
 
+- 토큰은 tsvector 리터럴로 넣는다. `to_tsvector` 는 `c++` 를 `c` 로 자르기 때문이다.
+  토크나이저 규칙이 바뀌면 다음 `sync` 가 본문이 같은 청크의 토큰만 고치고 임베딩은 둔다.
 - 제목 줄만 있는 청크(`## 참고 자료`처럼 각주를 빼면 비는 절)는 임베딩하지 않는다.
 - 글마다 "글 정보" 청크(`{글 id}#~meta`)가 하나 더 있다. 본문은 블로그의 `searchText`
   (태그·키워드·장르 등)이고, 키워드로만 찾는다(임베딩하지 않는다). 글 설명은 `search.posts` 에 둔다.

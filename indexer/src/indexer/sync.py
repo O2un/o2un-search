@@ -8,6 +8,8 @@
 - 청크: 새 청크는 넣고, 본문 해시나 임베딩 입력 해시(`embed_hash`)가 바뀐 청크는 고치고, 남은
   글 안에서 사라진 절은 지운다. 짧은 절의 임베딩 입력은 이웃 절 본문을 담으므로(`embed.py`),
   이웃 절만 바뀌어도 짧은 절이 고칠 대상이 된다.
+- 위 값이 모두 같고 토큰(어휘 집합)만 다르면 토큰만 고치고 임베딩은 둔다. 토크나이저 규칙이
+  바뀐 첫 실행이 이 경우다.
 - 글마다 "글 정보" 청크(`{post_id}#~meta`)를 하나 더 둔다. 본문은 블로그가 만든 `searchText` 다.
   키워드로만 찾고 임베딩하지 않는다(`embed_hash` 가 빈다). 프론트매터 단어를 모은 줄은 뜻이 흐려
   여러 검색어에 두루 가깝게 잡히기 때문이다. 청커가 만드는 청크가 아니므로 Rust 구현과
@@ -51,6 +53,8 @@ class State:
     posts: dict[str, SitePost] = field(default_factory=dict)
     # chunk_id → (content_hash, context_chunk_id, embed_hash)
     chunks: dict[str, tuple[str, str | None, str]] = field(default_factory=dict)
+    # chunk_id → 토큰 어휘 집합. 위치는 비교하지 않는다
+    lexemes: dict[str, frozenset[str]] = field(default_factory=dict)
 
 
 class Store(Protocol):
@@ -66,6 +70,10 @@ class Store(Protocol):
         """넣거나 고친다. 고친 청크의 임베딩은 비운다."""
         ...
 
+    def update_tokens(self, rows: list[Row]) -> None:
+        """토큰만 고친다. 임베딩은 그대로 둔다."""
+        ...
+
     def clear_embeddings(self, post_ids: list[str]) -> None: ...
 
 
@@ -75,6 +83,7 @@ class Plan:
     delete_posts: list[str] = field(default_factory=list)
     retitled: list[str] = field(default_factory=list)
     upsert_chunks: list[Row] = field(default_factory=list)
+    retokenize: list[Row] = field(default_factory=list)
     delete_chunks: list[str] = field(default_factory=list)
     unchanged: int = 0
 
@@ -87,6 +96,7 @@ class Summary:
     posts_deleted: int = 0
     chunks_updated: int = 0
     chunks_deleted: int = 0
+    tokens_updated: int = 0
     unchanged: int = 0
 
     def lines(self) -> list[str]:
@@ -94,7 +104,7 @@ class Summary:
             f"글 {self.posts}편, 청크 {self.chunks}개",
             f"글 추가·갱신 {self.posts_updated}편, 글 삭제 {self.posts_deleted}편",
             f"청크 추가·갱신 {self.chunks_updated}개, 청크 삭제 {self.chunks_deleted}개, "
-            f"변경 없음 {self.unchanged}개",
+            f"토큰만 갱신 {self.tokens_updated}개, 변경 없음 {self.unchanged}개",
         ]
 
 
@@ -168,10 +178,12 @@ def make_plan(posts: dict[str, SitePost], rows: list[Row], state: State) -> Plan
         if post_id in state.posts and state.posts[post_id].title != post.title
     )
     for row in rows:
-        if state.chunks.get(row.chunk_id) == (row.content_hash, row.context_chunk_id, row.embed_hash):
-            plan.unchanged += 1
-        else:
+        if state.chunks.get(row.chunk_id) != (row.content_hash, row.context_chunk_id, row.embed_hash):
             plan.upsert_chunks.append(row)
+        elif state.lexemes.get(row.chunk_id) != frozenset(row.tokens):
+            plan.retokenize.append(row)
+        else:
+            plan.unchanged += 1
     wanted = {row.chunk_id for row in rows}
     plan.delete_chunks = sorted(
         chunk_id
@@ -191,6 +203,7 @@ def run(blog: Path, dist: Path, store: Store, dry_run: bool = False) -> Summary:
         posts_deleted=len(plan.delete_posts),
         chunks_updated=len(plan.upsert_chunks),
         chunks_deleted=len(plan.delete_chunks),
+        tokens_updated=len(plan.retokenize),
         unchanged=plan.unchanged,
     )
     if dry_run:
@@ -207,4 +220,6 @@ def run(blog: Path, dist: Path, store: Store, dry_run: bool = False) -> Summary:
         store.clear_embeddings(plan.retitled)
     if plan.upsert_chunks:
         store.upsert_chunks(plan.upsert_chunks)
+    if plan.retokenize:
+        store.update_tokens(plan.retokenize)
     return summary

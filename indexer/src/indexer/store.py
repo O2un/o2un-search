@@ -9,6 +9,19 @@ from .site import SitePost
 from .sync import Row, State
 
 
+def tsvector_literal(tokens: tuple[str, ...]) -> str:
+    """토큰을 그대로 어휘로 쓰는 tsvector 리터럴(위치는 1부터).
+
+    `to_tsvector('simple', ...)` 는 Postgres 파서를 거쳐 `c++` 를 `c` 로, `.net` 을 `net` 으로
+    자른다. 토크나이저가 정한 토큰을 바꾸지 않도록 리터럴로 넣는다. 위치 상한(16383)과 어휘당
+    위치 수(256)는 Postgres 가 잘라 낸다.
+    """
+    def quote(token: str) -> str:
+        return "'" + token.replace("\\", "\\\\").replace("'", "''") + "'"
+
+    return " ".join(f"{quote(token)}:{position}" for position, token in enumerate(tokens, start=1))
+
+
 def _vector(values: list[float]) -> str:
     return "[" + ",".join(repr(float(value)) for value in values) + "]"
 
@@ -26,10 +39,17 @@ class PgStore:
         with self._conn.cursor() as cur:
             cur.execute("SELECT post_id, href, title, description FROM search.posts")
             posts = {row[0]: SitePost(*row[1:]) for row in cur.fetchall()}
-            cur.execute("SELECT chunk_id, content_hash, context_chunk_id, embed_hash FROM search.chunks")
-            chunks = {row[0]: tuple(row[1:]) for row in cur.fetchall()}
+            cur.execute(
+                "SELECT chunk_id, content_hash, context_chunk_id, embed_hash, tsvector_to_array(tokens)"
+                " FROM search.chunks"
+            )
+            rows = cur.fetchall()
         self._conn.commit()
-        return State(posts=posts, chunks=chunks)
+        return State(
+            posts=posts,
+            chunks={row[0]: tuple(row[1:4]) for row in rows},
+            lexemes={row[0]: frozenset(row[4]) for row in rows},
+        )
 
     def delete_posts(self, post_ids: list[str]) -> None:
         with self._conn.transaction(), self._conn.cursor() as cur:
@@ -63,7 +83,7 @@ class PgStore:
                 INSERT INTO search.chunks (
                     chunk_id, post_id, anchor, heading_path, body, tokens, content_hash,
                     context_chunk_id, embed_hash, indexed_at
-                ) VALUES (%s, %s, %s, %s, %s, to_tsvector('simple', %s), %s, %s, %s, now())
+                ) VALUES (%s, %s, %s, %s, %s, %s::tsvector, %s, %s, %s, now())
                 ON CONFLICT (chunk_id) DO UPDATE SET
                     post_id = EXCLUDED.post_id,
                     anchor = EXCLUDED.anchor,
@@ -84,13 +104,20 @@ class PgStore:
                         row.anchor,
                         row.heading_path,
                         row.body,
-                        " ".join(row.tokens),
+                        tsvector_literal(row.tokens),
                         row.content_hash,
                         row.context_chunk_id,
                         row.embed_hash,
                     )
                     for row in rows
                 ],
+            )
+
+    def update_tokens(self, rows: list[Row]) -> None:
+        with self._conn.transaction(), self._conn.cursor() as cur:
+            cur.executemany(
+                "UPDATE search.chunks SET tokens = %s::tsvector, indexed_at = now() WHERE chunk_id = %s",
+                [(tsvector_literal(row.tokens), row.chunk_id) for row in rows],
             )
 
     # embed

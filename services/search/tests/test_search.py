@@ -38,10 +38,26 @@ def test_snippet_moves_to_first_term() -> None:
 
 def test_query_words_strips_endings_and_dedupes() -> None:
     words = search.query_words("유니티 렌더링이 까맣게 나오는 이유 C# 유니티")
-    assert [stem for stem, _ in words] == ["유니", "렌더링", "까맣", "나오", "이유", "C"]
+    assert [stem for stem, _ in words] == ["유니", "렌더링", "까맣", "나오", "이유", "C#"]
     assert words[1][1] == ["렌더", "더링"]
-    # 한 음절은 토큰이 없어 단어가 되지 않는다.
-    assert search.query_words("뭐 ?") == []
+    assert words[5][1] == ["c#"]
+    # 한 음절, 한 글자 영문·숫자는 토큰이 없어 단어가 되지 않는다.
+    assert search.query_words("뭐 ? C 6") == []
+
+
+def test_query_words_keeps_dev_terms_whole() -> None:
+    words = search.query_words("C++26 ASP.NET System.NET node.jsx")
+    assert words == [
+        ("C++", ["c++"]),
+        ("26", ["26"]),
+        ("ASP.NET", ["asp.net"]),
+        ("System", ["system"]),
+        ("NET", ["net"]),
+        ("node", ["node"]),
+        ("jsx", ["jsx"]),
+    ]
+    # 같은 용어를 대소문자만 달리 쓰면 한 번만 둔다.
+    assert search.query_words("c# C#") == [("c#", ["c#"])]
 
 
 class FakeStore:

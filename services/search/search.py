@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from indexer import core
+from indexer._dev_terms import TERMS
 from indexer.query_cache import QueryCache, embed_query
 from indexer.sync import META_CHUNK_SUFFIX
 
@@ -51,8 +52,16 @@ class DeadlineProvider:
         return _pool.submit(self._inner.embed_query, query).result(timeout=self._seconds)
 
 
-# 토크나이저가 토큰을 만드는 구간과 같다: 한글 음절, ASCII 영문·숫자.
-_RUN = re.compile(r"[가-힣]+|[A-Za-z0-9]+")
+def _term_pattern(term: str) -> str:
+    # 영문·숫자로 끝나는 용어만 뒤 글자를 본다(토크나이저 규칙과 같다).
+    tail = r"(?![A-Za-z0-9])" if term[-1].isalnum() else ""
+    return re.escape(term) + tail
+
+
+# 토크나이저가 토큰을 만드는 구간과 같다: 개발 용어 사전의 용어(긴 것부터, ASCII 대소문자 무시),
+# 한글 음절, ASCII 영문·숫자.
+_TERMS = "|".join(_term_pattern(t) for t in sorted(TERMS, key=lambda t: (-len(t), t)))
+_RUN = re.compile(rf"(?<![A-Za-z0-9])(?ai:{_TERMS})|[가-힣]+|[A-Za-z0-9]+")
 _HANGUL_RUN = re.compile(r"[가-힣]{3,}")
 
 
@@ -61,6 +70,7 @@ def query_words(query: str) -> list[tuple[str, list[str]]]:
 
     한글 세 음절 이상은 끝 음절을 뗀다. 조사·어미("렌더링이", "까맣게", "만들기")가 단어마다
     달라 그대로 두면 글에 쓰인 꼴과 맞지 않는다. 어간은 결과 강조에도 쓴다.
+    개발 용어(`C++`)는 단어 하나다. 토큰이 없는 단어(한 글자 영문·숫자, 한 음절 한글)는 뺀다.
     """
     words: list[tuple[str, list[str]]] = []
     seen: set[str] = set()

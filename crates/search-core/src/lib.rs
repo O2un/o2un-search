@@ -1,6 +1,7 @@
 //! 검색 색인용 청커·토크나이저. Python 확장 모듈로 빌드한다.
 
 pub mod chunker;
+mod dev_terms;
 pub mod slug;
 mod slug_table;
 pub mod tokenizer;

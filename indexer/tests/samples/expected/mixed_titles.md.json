@@ -32,7 +32,7 @@
       "body": "## C# Delegate/event와 R3 Subject",
       "content_hash": "43e7c082d3c1acb5b055d3135a6ccf1bc59676cbf7103ed6c1cbd792e90a70c2",
       "tokens": [
-        "c",
+        "c#",
         "delegate",
         "event",
         "r3",
@@ -47,7 +47,7 @@
       "body": "## C++26이 온다 — senders / receivers",
       "content_hash": "2763da8e7bce9b20a279807a3cf49f3dc52e72e539bd33854f1534d7462ae35b",
       "tokens": [
-        "c",
+        "c++",
         "26",
         "온다",
         "senders",
@@ -96,12 +96,9 @@
       "body": "## A -- B, \"따옴표\", it's... 끝",
       "content_hash": "9004497d649ff3611afc9eacdb2a6526439f7fc071f804e440d0b3d453888ce5",
       "tokens": [
-        "a",
-        "b",
         "따옴",
         "옴표",
-        "it",
-        "s"
+        "it"
       ]
     },
     {
@@ -112,7 +109,7 @@
       "body": "## .NET 10에 없는 API ##",
       "content_hash": "3a840b9827f5b99f71fc5e0ff81d713d5fc4abf7ddca2ae9e9683d8f301c7c0a",
       "tokens": [
-        "net",
+        ".net",
         "10",
         "없는",
         "api"
@@ -127,7 +124,6 @@
       "content_hash": "878acaf93098ac65482312898b66a4d6e8d2f68c86b7f18a7e16846ade01c98d",
       "tokens": [
         "searchvalues",
-        "t",
         "별표"
       ]
     }

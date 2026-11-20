@@ -52,6 +52,7 @@ class MemoryStore:
                 chunk_id: (c.row.content_hash, c.row.context_chunk_id, c.row.embed_hash)
                 for chunk_id, c in self.chunks.items()
             },
+            lexemes={chunk_id: frozenset(c.row.tokens) for chunk_id, c in self.chunks.items()},
         )
 
     def delete_posts(self, post_ids: list[str]) -> None:
@@ -75,6 +76,10 @@ class MemoryStore:
         for row in rows:
             assert row.post_id in self.posts, "외래 키 위반: 글보다 청크가 먼저 들어왔다"
             self.chunks[row.chunk_id] = StoredChunk(row)
+
+    def update_tokens(self, rows: list[Row]) -> None:
+        for row in rows:
+            self.chunks[row.chunk_id].row = row
 
     def model_id(self, name: str) -> int:
         return self.models.setdefault(name, len(self.models) + 1)
@@ -226,6 +231,18 @@ def test_moved_section_updates_post_only(blog: Blog, store: MemoryStore) -> None
     assert (summary.posts_updated, summary.chunks_updated) == (1, 0)
     assert store.posts["선택/b"].href == "/notes/선택/b/"
     assert store.empty() == 0
+
+
+def test_tokenizer_change_updates_tokens_only(
+    blog: Blog, store: MemoryStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    original = sync.tokenize
+    monkeypatch.setattr(sync, "tokenize", lambda text: [*original(text), "새토큰"])
+    summary = _sync(blog, store)
+    assert (summary.chunks_updated, summary.tokens_updated, summary.unchanged) == (0, 6, 0)
+    assert all("새토큰" in c.row.tokens for c in store.chunks.values())
+    assert store.empty() == 0
+    assert _sync(blog, store).unchanged == 6
 
 
 def test_stale_build_is_rejected(blog: Blog) -> None:
